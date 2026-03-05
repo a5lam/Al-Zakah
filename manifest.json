@@ -1,0 +1,28 @@
+{
+  "name": "Zakah Companion",
+  "short_name": "Zakah",
+  "description": "A Hanafi Fiqh-compliant Zakat calculator with yearly records. Calculate Zakat al-Mal and Zakat al-Fitr with full breakdown support.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#1a6b5e",
+  "background_color": "#fdfaf6",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "lifestyle", "utilities"],
+  "screenshots": []
+}

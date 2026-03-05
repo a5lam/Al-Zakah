@@ -1,0 +1,1414 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Zakah Companion</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="./manifest.json">
+
+    <!-- iOS PWA Support -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Zakah">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
+
+    <!-- Theme & Description -->
+    <meta name="theme-color" content="#1a6b5e">
+    <meta name="description" content="Hanafi Fiqh-compliant Zakat calculator with yearly records, couple mode, and detailed breakdowns.">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1a6b5e;
+            --primary-light: #288f7e;
+            --primary-dark: #10453d;
+            --accent: #c9a84c;
+            --accent-hover: #b0913e;
+            --bg-body: #fdfaf6;
+            --bg-card: #ffffff;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --border: #e2dcd0;
+            --success: #2e7d32;
+            --danger: #c62828;
+            --warning: #f57f17;
+            --info: #0277bd;
+            
+            --zakatable-bg: #e8f5e9;
+            --zakatable-text: #2e7d32;
+            --exempt-bg: #ffebee;
+            --exempt-text: #c62828;
+            --conditional-bg: #fff8e1;
+            --conditional-text: #f57f17;
+            
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 8px rgba(0,0,0,0.08);
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        
+        body { background-color: var(--bg-body); color: var(--text-main); line-height: 1.6; padding-bottom: 40px; }
+        
+        h1, h2, h3, .arabic-font { font-family: 'Amiri', serif; }
+        
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        
+        /* Header */
+        header { text-align: center; margin-bottom: 30px; padding: 30px 0; border-bottom: 2px solid var(--accent); }
+        header h1 { color: var(--primary); font-size: 2.5rem; }
+        header p { color: var(--text-muted); }
+        
+        /* Navigation Tabs */
+        .tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; }
+        .tab-btn { background: transparent; border: none; padding: 10px 20px; font-size: 1.1rem; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .tab-btn:hover { color: var(--primary); }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+        
+        /* Content Areas */
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Calculator Sections */
+        .section { background: var(--bg-card); border-radius: var(--radius-lg); padding: 25px; margin-bottom: 20px; box-shadow: var(--shadow-sm); border: 1px solid var(--border); }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; cursor: pointer; }
+        .section-header h2 { color: var(--primary); font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
+        .toggle-icon { font-size: 1.2rem; transition: transform 0.3s; }
+        .section.collapsed .section-content { display: none; }
+        .section.collapsed .toggle-icon { transform: rotate(-90deg); }
+        
+        /* Grid & Forms */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 600px) { .grid-2 { grid-template-columns: 1fr; } }
+        
+        .form-group { margin-bottom: 15px; position: relative; }
+        label { display: block; font-weight: 500; margin-bottom: 5px; font-size: 0.95rem; }
+        .info-icon { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: var(--primary-light); color: white; font-size: 12px; cursor: pointer; margin-left: 5px; font-family: serif; font-style: italic; }
+        
+        .input-wrapper { position: relative; display: flex; align-items: center; }
+        .currency-symbol { position: absolute; left: 12px; color: var(--text-muted); font-weight: 500; }
+        .unit-suffix { position: absolute; right: 80px; color: var(--text-muted); font-size: 0.9rem; }
+        
+        input[type="number"], input[type="text"], input[type="date"] { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 1rem; transition: border-color 0.2s; }
+        input[type="number"]:focus, input[type="text"]:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(26,107,94,0.1); }
+        .has-currency { padding-left: 25px !important; }
+        .has-unit { padding-right: 40px !important; }
+        input.has-breakdown { padding-right: 80px !important; }
+        input.has-unit.has-breakdown { padding-right: 130px !important; }
+        
+        .btn-breakdown { position: absolute; right: 6px; background: var(--bg-body); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; font-size: 0.8rem; padding: 4px 8px; transition: all 0.2s; z-index: 2; font-weight: 500; }
+        .btn-breakdown:hover { background: var(--primary-light); color: white; border-color: var(--primary-light); }
+        .btn-breakdown.active-breakdown { background: var(--primary); color: white; border-color: var(--primary); }
+        
+        /* Toggle Switch */
+        .toggle-wrapper { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+        .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(24px); }
+        
+        /* Couple Mode Columns */
+        .couple-columns { display: none; }
+        body.couple-mode .couple-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border-top: 1px solid var(--border); margin-top: 15px; padding-top: 15px; }
+        body.couple-mode .solo-column { display: none; }
+        .col-title { font-weight: 600; color: var(--primary); margin-bottom: 15px; text-align: center; padding-bottom: 5px; border-bottom: 2px solid var(--accent); }
+        @media (max-width: 600px) { body.couple-mode .couple-columns { grid-template-columns: 1fr; gap: 30px; } }
+        
+        /* Info Drawer / Modal */
+        .drawer-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999; display: none; opacity: 0; transition: opacity 0.3s; }
+        .drawer-overlay.active { display: block; opacity: 1; }
+        
+        .drawer { position: fixed; top: 0; right: -350px; width: 350px; height: 100vh; background: var(--bg-card); box-shadow: -5px 0 15px rgba(0,0,0,0.1); z-index: 1000; transition: right 0.3s ease; padding: 25px; overflow-y: auto; }
+        .drawer.active { right: 0; }
+        @media (max-width: 400px) { .drawer { width: 100%; right: -100%; } }
+        
+        .drawer-close { position: absolute; top: 15px; right: 20px; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); background: none; border: none; }
+        .drawer-content h3 { color: var(--primary); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 10px; padding-right: 20px; }
+        .drawer-content p { font-size: 0.95rem; margin-bottom: 15px; color: var(--text-main); }
+        .drawer-link { color: var(--info); text-decoration: none; font-weight: 500; font-size: 0.9rem; cursor: pointer; }
+        .drawer-link:hover { text-decoration: underline; }
+        
+        /* Results Section */
+        .results-panel { background: var(--primary-dark); color: white; padding: 30px; border-radius: var(--radius-lg); text-align: center; margin-top: 30px; }
+        .result-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .result-row:last-child { border-bottom: none; }
+        .result-label { font-size: 1.1rem; opacity: 0.9; }
+        .result-value { font-size: 1.2rem; font-weight: 600; }
+        .grand-total { font-size: 2rem; color: var(--accent); margin-top: 20px; padding-top: 20px; border-top: 2px dashed rgba(201, 168, 76, 0.5); }
+        .nisab-status { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 0.9rem; font-weight: 600; margin-bottom: 15px; }
+        .status-met { background: var(--zakatable-bg); color: var(--zakatable-text); }
+        .status-not-met { background: var(--exempt-bg); color: var(--exempt-text); }
+        
+        /* Buttons */
+        .btn { padding: 12px 24px; border: none; border-radius: var(--radius-sm); font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-secondary { background: var(--primary); color: white; }
+        .btn-secondary:hover { background: var(--primary-dark); }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+        .btn-outline:hover { background: var(--primary-light); color: white; border-color: var(--primary-light); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-block { width: 100%; margin-top: 20px; }
+        
+        /* Fiqh Rules Accordion */
+        .search-box { width: 100%; padding: 15px; margin-bottom: 20px; border: 2px solid var(--border); border-radius: var(--radius-md); font-size: 1.1rem; }
+        .search-box:focus { border-color: var(--primary); outline: none; }
+        
+        .rule-card { background: var(--bg-card); border-radius: var(--radius-md); margin-bottom: 15px; overflow: hidden; border: 1px solid var(--border); }
+        .rule-header { padding: 15px 20px; background: #f9f9f9; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 600; }
+        .rule-header:hover { background: #f0f0f0; }
+        .rule-content { padding: 0 20px; max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out, padding 0.3s ease; }
+        .rule-card.active .rule-content { padding: 20px; max-height: 1000px; border-top: 1px solid var(--border); }
+        .rule-card.active .rule-icon { transform: rotate(180deg); }
+        
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; margin-left: 10px; }
+        .badge-zakatable { background: var(--zakatable-bg); color: var(--zakatable-text); }
+        .badge-exempt { background: var(--exempt-bg); color: var(--exempt-text); }
+        .badge-conditional { background: var(--conditional-bg); color: var(--conditional-text); }
+        
+        /* History Cards */
+        .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .history-card { background: var(--bg-card); border-radius: var(--radius-md); padding: 20px; border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+        .history-year { font-size: 1.2rem; font-weight: bold; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }
+        .history-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.95rem; }
+        .history-total { font-weight: bold; color: var(--accent); margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 1.1rem; }
+        .history-actions { display: flex; gap: 10px; margin-top: 15px; }
+        .history-actions button { flex: 1; padding: 8px; font-size: 0.9rem; }
+        
+        .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
+        .hidden { display: none !important; }
+        
+        /* Modal Styles */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        .modal-content { background: var(--bg-card); width: 90%; max-width: 500px; border-radius: var(--radius-lg); box-shadow: var(--shadow-md); display: flex; flex-direction: column; max-height: 90vh; }
+        .modal-header { padding: 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { color: var(--primary); margin: 0; font-size: 1.2rem; }
+        .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); }
+        .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+        .modal-footer { padding: 15px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+        .breakdown-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .breakdown-row input[type="text"] { flex: 2; }
+        .breakdown-row .bd-amount-wrapper { display: flex; align-items: center; gap: 5px; flex: 1; }
+        .breakdown-row input[type="number"] { width: 100%; }
+        .breakdown-remove { background: var(--danger); color: white; border: none; width: 32px; height: 32px; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; }
+        .breakdown-remove:hover { opacity: 0.9; }
+
+        /* Preview Modal */
+        .preview-modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 2000; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .preview-modal-overlay.active { display: flex; }
+        .preview-modal { background: var(--bg-card); width: 100%; max-width: 620px; border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.2); display: flex; flex-direction: column; max-height: 90vh; overflow: hidden; }
+        .preview-modal-header { background: var(--primary-dark); color: white; padding: 20px 25px; display: flex; justify-content: space-between; align-items: center; }
+        .preview-modal-header h2 { font-family: 'Amiri', serif; margin: 0; font-size: 1.6rem; }
+        .preview-modal-header .preview-close { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; opacity: 0.8; line-height: 1; }
+        .preview-modal-header .preview-close:hover { opacity: 1; }
+        .preview-modal-body { padding: 25px; overflow-y: auto; flex: 1; }
+        .preview-modal-footer { padding: 15px 25px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 10px; background: var(--bg-body); border-bottom-left-radius: var(--radius-lg); border-bottom-right-radius: var(--radius-lg); }
+        .preview-summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-bottom: 20px; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+        .preview-summary-row { display: contents; }
+        .preview-summary-row > span { padding: 10px 15px; font-size: 0.95rem; border-bottom: 1px solid var(--border); }
+        .preview-summary-row > span:first-child { color: var(--text-muted); font-weight: 500; background: var(--bg-body); }
+        .preview-summary-row > span:last-child { text-align: right; font-weight: 600; }
+        .preview-total-box { background: var(--primary-dark); color: white; padding: 15px 20px; border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .preview-total-box .label { font-size: 1rem; opacity: 0.85; }
+        .preview-total-box .amount { font-size: 1.6rem; font-weight: 700; color: var(--accent); }
+        .preview-breakdown-section h3 { color: var(--primary); font-size: 1.1rem; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid var(--accent); }
+        .preview-breakdown-item { margin-bottom: 15px; }
+        .preview-breakdown-item h4 { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+        .preview-breakdown-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .preview-breakdown-table td { padding: 6px 10px; border-bottom: 1px dashed var(--border); }
+        .preview-breakdown-table td:last-child { text-align: right; }
+        .preview-breakdown-table tr:last-child td { font-weight: 700; border-bottom: none; background: var(--bg-body); }
+        .history-card { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .history-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="arabic-font">Zakah Companion</h1>
+            <p>Hanafi Fiqh Compliant &bull; Silver Nisab Standard</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="calc">🧮 Calculator</button>
+            <button class="tab-btn" data-tab="history">📜 History</button>
+            <button class="tab-btn" data-tab="fiqh">📖 Fiqh Rules</button>
+        </div>
+
+        <!-- CALCULATOR TAB -->
+        <div id="calc-tab" class="tab-content active">
+            <div class="toggle-wrapper">
+                <span class="col-title">Solo Mode</span>
+                <label class="switch">
+                    <input type="checkbox" id="mode-toggle">
+                    <span class="slider"></span>
+                </label>
+                <span class="col-title" style="color:var(--text-muted)">Couple Mode</span>
+            </div>
+
+            <!-- SECTION 1: BASIC DETAILS & NISAB -->
+            <div class="section" id="sec-nisab">
+                <div class="section-header" onclick="toggleSection('sec-nisab')">
+                    <h2>1. Basic Details & Nisab</h2>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="section-content grid-2">
+                    <div class="form-group">
+                        <label id="h-name-label">Name (Solo / Husband)</label>
+                        <input type="text" id="h-name" placeholder="Enter name">
+                    </div>
+                    <div class="form-group" id="w-name-group" style="display:none;">
+                        <label>Wife's Name</label>
+                        <input type="text" id="w-name" placeholder="Enter wife's name">
+                    </div>
+                    <div class="form-group">
+                        <label>Year Label</label>
+                        <input type="text" id="year-label" placeholder="e.g. Ramadan 1445" value="Ramadan 1445">
+                    </div>
+                    <div class="form-group">
+                        <label>Zakat Date</label>
+                        <input type="date" id="zakat-date">
+                    </div>
+                    <div class="form-group">
+                        <label>Silver Price (per gram) <span class="info-icon" onclick="openFiqh('rule1')">i</span></label>
+                        <div class="input-wrapper">
+                            <span class="currency-symbol">$</span>
+                            <input type="number" id="silver-price" class="has-currency" value="1.05" step="0.01">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Gold Price (per gram) <span class="info-icon" onclick="openFiqh('rule3')">i</span></label>
+                        <div class="input-wrapper">
+                            <span class="currency-symbol">$</span>
+                            <input type="number" id="gold-price" class="has-currency" value="95.50" step="0.01">
+                        </div>
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1; background: var(--bg-body); padding: 15px; border-radius: var(--radius-sm); border-left: 4px solid var(--info);">
+                        <p style="font-weight: 600; color: var(--info);">Calculated Nisab (Silver Standard - 612.36g): <span id="nisab-value">$642.98</span></p>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">*The silver standard is used by default as it is most beneficial to the poor.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: RIBA CLEANSING -->
+            <div class="section" id="sec-riba">
+                <div class="section-header" onclick="toggleSection('sec-riba')">
+                    <h2>2. Riba (Interest) Cleansing</h2>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="section-content">
+                    <p style="font-size: 0.9rem; color: var(--danger); margin-bottom: 15px;">Before calculating Zakat, you must remove any interest earned from your bank accounts. This money must be given away to charity immediately. It will be deducted from your total cash.</p>
+                    <div class="form-group">
+                        <label>Interest accumulated this year <span class="info-icon" onclick="openFiqh('rule2')">i</span></label>
+                        <div class="input-wrapper">
+                            <span class="currency-symbol">$</span>
+                            <input type="number" id="riba-amount" class="has-currency asset-input" value="0" min="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: ASSETS -->
+            <div class="section" id="sec-assets">
+                <div class="section-header" onclick="toggleSection('sec-assets')">
+                    <h2>3. Zakatable Assets</h2>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="section-content">
+                    <div id="assets-container" class="grid-2">
+                        <!-- Left Column (Husband / Solo) -->
+                        <div class="col-left">
+                            <div class="couple-columns"><div class="col-title">Husband's Assets</div></div>
+                            
+                            <div class="form-group">
+                                <label>Cash in Checking, Savings & On Hand</label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="h-cash" class="has-currency asset-input" value="0" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Gold Weight (Jewelry, Coins, Bullion) <span class="info-icon" onclick="openFiqh('rule3')">i</span></label>
+                                <div class="input-wrapper">
+                                    <input type="number" id="h-gold" class="has-unit asset-input gold-input" value="0" min="0">
+                                    <span class="unit-suffix">grams</span>
+                                </div>
+                                <div style="font-size:0.8rem; color:var(--accent); text-align:right; margin-top:2px;">Calculated Value: $<span id="h-gold-val">0.00</span></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Silver Weight (Jewelry, Coins, Bullion) <span class="info-icon" onclick="openFiqh('rule3')">i</span></label>
+                                <div class="input-wrapper">
+                                    <input type="number" id="h-silver" class="has-unit asset-input silver-input" value="0" min="0">
+                                    <span class="unit-suffix">grams</span>
+                                </div>
+                                <div style="font-size:0.8rem; color:var(--accent); text-align:right; margin-top:2px;">Calculated Value: $<span id="h-silver-val">0.00</span></div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Business Inventory (Current Market Value) <span class="info-icon" onclick="openFiqh('rule4')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="h-trade" class="has-currency asset-input" value="0" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Stocks, Crypto & Zakatable Investments <span class="info-icon" onclick="openFiqh('rule6')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="h-invest" class="has-currency asset-input" value="0" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Personal Loans Owed to You (Expected to be Repaid) <span class="info-icon" onclick="openFiqh('rule7')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="h-receivables" class="has-currency asset-input" value="0" min="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column (Wife) -->
+                        <div class="col-right couple-columns" style="display:none;" id="wife-assets-col">
+                            <div class="col-title">Wife's Assets</div>
+                            
+                            <div class="form-group">
+                                <label>Cash in Checking, Savings & On Hand</label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="w-cash" class="has-currency asset-input" value="0" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Gold Weight (Jewelry, Coins, Bullion) <span class="info-icon" onclick="openFiqh('rule3')">i</span></label>
+                                <div class="input-wrapper">
+                                    <input type="number" id="w-gold" class="has-unit asset-input gold-input" value="0" min="0">
+                                    <span class="unit-suffix">grams</span>
+                                </div>
+                                <div style="font-size:0.8rem; color:var(--accent); text-align:right; margin-top:2px;">Calculated Value: $<span id="w-gold-val">0.00</span></div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Silver Weight (Jewelry, Coins, Bullion) <span class="info-icon" onclick="openFiqh('rule3')">i</span></label>
+                                <div class="input-wrapper">
+                                    <input type="number" id="w-silver" class="has-unit asset-input silver-input" value="0" min="0">
+                                    <span class="unit-suffix">grams</span>
+                                </div>
+                                <div style="font-size:0.8rem; color:var(--accent); text-align:right; margin-top:2px;">Calculated Value: $<span id="w-silver-val">0.00</span></div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Business Inventory (Current Market Value)</label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="w-trade" class="has-currency asset-input" value="0" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Stocks, Crypto & Zakatable Investments</label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="w-invest" class="has-currency asset-input" value="0" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Personal Loans Owed to You (Expected to be Repaid)</label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="w-receivables" class="has-currency asset-input" value="0" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group" style="background:var(--bg-body); padding:10px; border-radius:4px;">
+                                <label>Unpaid Mahr Owed by Husband <span class="info-icon" onclick="openFiqh('rule9')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="w-mahr" class="has-currency asset-input" value="0" min="0" readonly>
+                                </div>
+                                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">*Auto-filled from deductions</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 4: DEDUCTIONS -->
+            <div class="section" id="sec-deductions">
+                <div class="section-header" onclick="toggleSection('sec-deductions')">
+                    <h2>4. Deductions (Liabilities)</h2>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="section-content">
+                    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 15px;">Only deduct debts that are currently due, or the principal amount of long-term loans for the next 12 months.</p>
+                    
+                    <div id="deductions-container" class="grid-2">
+                        <!-- Left Column (Husband / Solo) -->
+                        <div class="col-left">
+                            <div class="couple-columns"><div class="col-title">Husband's Deductions</div></div>
+                            
+                            <div class="form-group">
+                                <label>Personal Loans / Money You Owe to Others <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="h-debts" class="has-currency liability-input" value="0" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Outstanding Credit Card Balances & LOC <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="h-credit" class="has-currency liability-input" value="0" min="0">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Unpaid Rent, Utilities & Immediate Bills <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="h-bills" class="has-currency liability-input" value="0" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Mortgages & Auto Loans (Next 12 Months Principal Only) <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="h-mortgage" class="has-currency liability-input" value="0" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group couple-columns" style="display:none;" id="h-mahr-group">
+                                <label>Unpaid Mahr Owed to Wife <span class="info-icon" onclick="openFiqh('rule9')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="h-mahr-owed" class="has-currency liability-input" value="0" min="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right Column (Wife) -->
+                        <div class="col-right couple-columns" style="display:none;" id="wife-deductions-col">
+                            <div class="col-title">Wife's Deductions</div>
+                            
+                            <div class="form-group">
+                                <label>Personal Loans / Money You Owe to Others <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="w-debts" class="has-currency liability-input" value="0" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Outstanding Credit Card Balances & LOC <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="w-credit" class="has-currency liability-input" value="0" min="0">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Unpaid Rent, Utilities & Immediate Bills <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="w-bills" class="has-currency liability-input" value="0" min="0">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Mortgages & Auto Loans (Next 12 Months Principal Only) <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
+                                <div class="input-wrapper">
+                                    <span class="currency-symbol">$</span>
+                                    <input type="number" id="w-mortgage" class="has-currency liability-input" value="0" min="0">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 5: ZAKAT AL-FITR -->
+            <div class="section" id="sec-fitr">
+                <div class="section-header" onclick="toggleSection('sec-fitr')">
+                    <h2>5. Zakat al-Fitr</h2>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="section-content grid-2">
+                    <div class="form-group">
+                        <label>Number of Dependent Family Members <span class="info-icon" onclick="openFiqh('rule12')">i</span></label>
+                        <input type="number" id="fitr-count" value="1" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Rate per Person (Determined by Local Mosque)</label>
+                        <div class="input-wrapper">
+                            <span class="currency-symbol">$</span>
+                            <input type="number" id="fitr-rate" class="has-currency" value="15.00" step="1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RESULTS PANEL -->
+            <div class="results-panel">
+                <h2 class="arabic-font" style="margin-bottom: 20px; font-size: 2rem;">Zakat Summary</h2>
+                
+                <div id="h-results-section">
+                    <div id="h-nisab-badge" class="nisab-status status-not-met">Nisab Not Met</div>
+                    <div class="result-row">
+                        <span class="result-label" id="h-wealth-label">Total Zakatable Wealth</span>
+                        <span class="result-value" id="h-net-wealth">$0.00</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label" id="h-zakat-label">Zakat al-Mal (2.5%)</span>
+                        <span class="result-value" id="h-zakat-mal">$0.00</span>
+                    </div>
+                </div>
+
+                <div id="w-results-section" style="display:none; margin-top:20px; border-top:1px solid rgba(255,255,255,0.2); padding-top:20px;">
+                    <div id="w-nisab-badge" class="nisab-status status-not-met">Wife: Nisab Not Met</div>
+                    <div class="result-row">
+                        <span class="result-label">Wife's Zakatable Wealth</span>
+                        <span class="result-value" id="w-net-wealth">$0.00</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">Wife's Zakat al-Mal (2.5%)</span>
+                        <span class="result-value" id="w-zakat-mal">$0.00</span>
+                    </div>
+                </div>
+
+                <div class="result-row" style="margin-top:15px; color:var(--text-muted);">
+                    <span class="result-label">Zakat al-Fitr Total</span>
+                    <span class="result-value" id="fitr-total">$15.00</span>
+                </div>
+                
+                <div class="grand-total">
+                    <span style="font-size: 1.2rem; display: block; opacity: 0.9;">Total Payable</span>
+                    $<span id="grand-total">15.00</span>
+                </div>
+
+                <button class="btn btn-primary btn-block" onclick="saveRecord()" style="margin-top: 30px; font-size: 1.2rem;">
+                    💾 Save This Year's Record
+                </button>
+            </div>
+        </div>
+        <!-- END CALCULATOR TAB -->
+
+        <!-- HISTORY TAB -->
+        <div id="history-tab" class="tab-content">
+            <h2 class="arabic-font" style="color:var(--primary); margin-bottom: 20px;">Past Zakat Records</h2>
+            <div id="history-container" class="history-grid">
+                <!-- History cards generated via JS -->
+            </div>
+        </div>
+
+        <!-- FIQH RULES TAB -->
+        <div id="fiqh-tab" class="tab-content">
+            <h2 class="arabic-font" style="color:var(--primary); margin-bottom: 20px;">The Fiqh of Zakat</h2>
+            <input type="text" id="fiqh-search" class="search-box" placeholder="Search rules (e.g., 'gold', 'mortgage', 'wife')...">
+            
+            <div id="fiqh-accordion">
+                <!-- Fiqh rules populated via JS -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- BREAKDOWN MODAL -->
+    <div class="modal-overlay" id="breakdown-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="breakdown-title">Breakdown</h3>
+                <button class="modal-close" onclick="closeBreakdown()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="breakdown-list"></div>
+                <button class="btn btn-outline" onclick="addBreakdownRow()" style="width: 100%; margin-top: 15px; border-style: dashed;">+ Add Another Item</button>
+            </div>
+            <div class="modal-footer" style="background: #fdfaf6; border-bottom-left-radius: var(--radius-lg); border-bottom-right-radius: var(--radius-lg);">
+                <div style="font-weight: 600; align-self: center; font-size: 1.1rem;">Total: <span id="breakdown-total" style="color: var(--primary);">0</span></div>
+                <div>
+                    <button class="btn btn-outline" onclick="closeBreakdown()" style="margin-right: 10px; padding: 8px 15px;">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveBreakdown()" style="padding: 8px 15px;">Save Total</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PREVIEW MODAL -->
+    <div class="preview-modal-overlay" id="preview-modal-overlay" onclick="closePreviewModal(event)">
+        <div class="preview-modal">
+            <div class="preview-modal-header">
+                <h2 id="preview-title">Zakat Record</h2>
+                <button class="preview-close" onclick="closePreviewModal()">&times;</button>
+            </div>
+            <div class="preview-modal-body" id="preview-modal-body">
+            </div>
+            <div class="preview-modal-footer">
+                <button class="btn btn-danger" id="preview-delete-btn">🗑️ Delete</button>
+                <button class="btn btn-outline" id="preview-print-btn">🖨️ Print</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DRAWER -->
+    <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+    <div class="drawer" id="fiqh-drawer">
+        <button class="drawer-close" onclick="closeDrawer()">&times;</button>
+        <div class="drawer-content" id="drawer-content">
+            <!-- Content injected via JS -->
+        </div>
+    </div>
+
+    <script>
+        // ----------------- PWA SERVICE WORKER REGISTRATION -----------------
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('✅ Zakah Companion: Service Worker registered', reg.scope))
+                    .catch(err => console.warn('SW registration failed:', err));
+            });
+        }
+
+        // ----------------- STATE & DATA -----------------
+        let isCoupleMode = false;
+        let silverNisabWeight = 612.36; // grams
+        let breakdownsData = {}; // Stores breakdown data
+        let currentBreakdownId = null;
+        
+        const fiqhRules = {
+            rule1: {
+                title: "1. The Foundation: Nisab and the Hawl (The Lunar Year)",
+                badge: { text: "Foundation", class: "badge-conditional" },
+                content: `
+                    <p><strong>The Rule:</strong> Zakat becomes obligatory when your net wealth reaches the <em>Nisab</em> (the minimum threshold) and remains above zero for one complete Islamic lunar year (<em>Hawl</em>). The Hanafi school mandates using the silver standard (612.36 grams of silver) because its lower value brings more people into the fold of giving, which is <em>anfa' lil-fuqara</em> (most beneficial to the poor).</p>
+                    <p><strong>Example:</strong> You set your Zakat date as the 1st of Ramadan. If the value of 612.36g of silver is $500, and you possess $1,000, you have reached the Nisab. Exactly one lunar year later, you calculate your total wealth. Whatever you hold on that exact day is what you pay 2.5% on.</p>
+                    <p><strong>The Exceptions:</strong></p>
+                    <ul>
+                        <li><strong>The Gold Exception:</strong> If your wealth consists <em>exclusively</em> of gold—meaning you have absolutely zero cash, zero silver, and zero trade goods—you may use the higher gold Nisab (87.48 grams). However, if you have a massive gold collection but even $1 in your checking account, the two categories combine, and you must use the silver Nisab.</li>
+                        <li><strong>The "Zero Balance" Reset:</strong> Fluctuations during the year do not matter. However, if your wealth drops to exactly $0.00 at any point during the year, your Zakat cycle breaks. A new year only begins the day your wealth reaches the Nisab again.</li>
+                    </ul>
+                `
+            },
+            rule2: {
+                title: "2. The Purification of Haram Wealth (Bank Interest / Riba)",
+                badge: { text: "Deduction", class: "badge-exempt" },
+                content: `
+                    <p><em>It is very common for conventional checking or savings accounts to accumulate small amounts of interest (Riba).</em></p>
+                    <p><strong>The Rule:</strong> You cannot pay Zakat on impermissible wealth, because Allah is pure and only accepts what is pure. Furthermore, you cannot keep it.</p>
+                    <p><strong>The Action:</strong> Before you calculate your Zakat, you must identify any interest earned in your bank accounts over the year. You must give <strong>100%</strong> of this interest money away to the poor or to charitable causes (like building public facilities), with the strict understanding that this is a <em>cleansing</em> of your wealth, not an act of charity that will earn you spiritual reward (<em>thawab</em>). Once the interest is removed from your total balance, you calculate your 2.5% Zakat on the remaining, pure money.</p>
+                `
+            },
+            rule3: {
+                title: "3. Precious Metals and Jewelry",
+                badge: { text: "Zakatable", class: "badge-zakatable" },
+                content: `
+                    <p><strong>The Rule:</strong> In the Hanafi school, <em>all</em> gold and silver are Zakatable. It does not matter if it is bullion in a safe, broken pieces, or jewelry worn every single day by you or your spouse.</p>
+                    <p><strong>Example:</strong> Your wife has a wedding necklace containing 50 grams of gold, and she wears it daily. You must find the current scrap market value of 50 grams of gold on your Zakat day and add it to your calculation.</p>
+                    <p><strong>The Exception (Stones and Other Metals):</strong> Diamonds, rubies, emeralds, pearls, platinum, and palladium are completely exempt from Zakat, regardless of their value. If you own a $10,000 diamond ring set in $500 worth of gold, you only pay Zakat on the $500 of gold. <em>(Note: If you become a jeweler and sell diamonds as trade goods, their full value becomes Zakatable).</em></p>
+                `
+            },
+            rule4: {
+                title: "4. Business Inventory and Trade Goods (Urud al-Tijarah)",
+                badge: { text: "Zakatable", class: "badge-zakatable" },
+                content: `
+                    <p><em>If you ever start selling goods (e.g., an Amazon FBA store, a clothing boutique, or selling baked goods), this rule kicks in.</em></p>
+                    <p><strong>The Rule:</strong> Everything you purchase with the strict intention to resell is Zakatable.</p>
+                    <p><strong>Valuation:</strong> In the Hanafi school, you must value your finished inventory based on its <strong>current retail market value</strong> on your Zakat day, not the wholesale price you paid for it.</p>
+                    <p><strong>Raw Materials:</strong> If you manufacture items, your raw materials and work-in-progress are also Zakatable based on their current market value. (However, the tools, machinery, and shelving you use to run the business remain exempt).</p>
+                `
+            },
+            rule5: {
+                title: "5. Real Estate and Fixed Assets",
+                badge: { text: "Exempt", class: "badge-exempt" },
+                content: `
+                    <p><strong>The Rule:</strong> Zakat is a tax on liquid wealth and growing assets, not on items for personal use or the fixed capital used to generate income.</p>
+                    <p><strong>Example:</strong> You own a primary residence worth $800k, a car worth $30k, and a rental property worth $400k. The total value of these physical assets is absolutely exempt. You only pay Zakat on the cash <em>generated</em> by the rental property once it sits in your bank account on your Zakat day.</p>
+                    <p><strong>The Exception (Trade Goods / "Flipping"):</strong> If you purchase a plot of land or a house with the <em>explicit, primary intention</em> at the time of purchase to resell it for a profit, it is classified as <em>Urud al-Tijarah</em> (trade goods). You must pay 2.5% on its full current market value every single year while you wait to sell it.</p>
+                `
+            },
+            rule6: {
+                title: "6. Investments, Shares, and Pensions",
+                badge: { text: "Conditional", class: "badge-conditional" },
+                content: `
+                    <p><strong>The Rule:</strong> Your intention dictates the Zakat treatment.</p>
+                    <p><strong>Example 1 (Capital Gains/Trading):</strong> You buy shares or cryptocurrency intending to sell them when the price goes up. You must pay 2.5% on their <em>full current market value</em>.</p>
+                    <p><strong>Example 2 (Dividend/Long-term):</strong> You buy shares in a telecom company to hold for years and collect dividends. You only owe Zakat on the company's underlying Zakatable assets (cash and inventory), not the buildings or cell towers. This usually requires looking up the specific "Zakat per share" calculated by Islamic finance bodies.</p>
+                    <p><strong>The Exception (Locked Pensions):</strong> If you have an employer pension (like a locked RRSP) that you legally cannot touch or withdraw from, you do not possess complete ownership (<em>milk al-taam</em>). Therefore, no Zakat is due. Zakat only becomes due when you retire or leave the company and gain access to those funds.</p>
+                `
+            },
+            rule7: {
+                title: "7. Debts Owed to You (Receivables) & The \"Bad Debt\" Rule",
+                badge: { text: "Conditional", class: "badge-conditional" },
+                content: `
+                    <p><strong>The Rule (Strong Debt):</strong> If you loan money to someone who is willing and able to pay you back, this is a <em>Dayn Qawi</em> (strong debt). It is still your money, just sitting in someone else's pocket. You must pay Zakat on it annually.</p>
+                    <p><strong>The Exception (Weak/Bad Debt Recovery):</strong> If you loan a friend $5,000 and they go bankrupt, disappear, or deny the debt, you lose hope of recovery. This becomes a <em>Dayn Dha'if</em> (weak/lost debt). You immediately stop paying Zakat on it; you do not include it in your spreadsheet.</p>
+                    <p><em>The Recovery Scenario:</em> Five years later, the person repays you the $5,000. <strong>You do not owe Zakat for the past five years.</strong> The wealth was fundamentally out of your control. You simply add the $5,000 to your bank account today. If it is still there on your next Zakat date, you pay on it then.</p>
+                `
+            },
+            rule8: {
+                title: "8. Liabilities (Money You Owe)",
+                badge: { text: "Deduction", class: "badge-exempt" },
+                content: `
+                    <p><strong>The Rule:</strong> Debts that demand immediate payment are deducted from your total wealth, as this money legally belongs to your creditors.</p>
+                    <p><strong>Example:</strong> On your Zakat day, you have $10,000 in the bank, but your credit card bill is $1,000 and your rent of $1,500 is currently overdue. You subtract $2,500 and pay Zakat on the remaining $7,500.</p>
+                    <p><strong>The Exception (Long-Term Loans & Mortgages):</strong> Classical jurisprudence did not deal with 30-year mortgages. Contemporary Hanafi scholars rule that you cannot deduct the massive total balance of a mortgage or car loan. You may only deduct the <em>principal</em> (strictly excluding any interest/riba) of the installments due in the <strong>upcoming 12 lunar months</strong>.</p>
+                    <p><em>A Clerical Warning:</em> Scholars caution that if you have high liquidity (e.g., $50,000 in savings) and comfortably pay your monthly bills from your salary, you should not use the 12-month long-term debt deduction to artificially lower or wipe out your Zakat. Zakat is the right of the poor; we must be careful not to use modern debt structures as loopholes to avoid paying it.</p>
+                `
+            },
+            rule9: {
+                title: "9. The Husband and Wife: Who Pays Zakat on What?",
+                badge: { text: "Individual Obligation", class: "badge-conditional" },
+                content: `
+                    <p><strong>The Rule:</strong> Zakat is a personal obligation (<em>fard 'ayn</em>) — it falls on the <strong>owner</strong> of the wealth, not their spouse. In the Hanafi school, a husband is <strong>not</strong> obligated to pay Zakat on his wife's possessions. The wife owns her jewelry, cash, gold, and receivables independently (<em>milk al-taam</em>), even within the marriage.</p>
+                    <ul>
+                        <li><strong>Jewelry (gold/silver):</strong> The <strong>wife</strong> herself, since she is the owner</li>
+                        <li><strong>Her cash/savings:</strong> The <strong>wife</strong></li>
+                        <li><strong>Loans she gave to others:</strong> The <strong>wife</strong> (if it is a strong debt, <em>Dayn Qawi</em>)</li>
+                        <li><strong>Mahr (dowry) owed by husband:</strong> The <strong>wife</strong> includes it as her asset; the husband may deduct it as a liability</li>
+                    </ul>
+                    <p><strong>Practical Note:</strong> A husband may <em>choose</em> to pay on his wife's behalf as an act of generosity — this is perfectly valid and praiseworthy — but it is <strong>her</strong> obligation being fulfilled, not his. She should ideally be aware of it and give her consent.</p>
+                    <p><strong>The Mahr Link:</strong> If the husband still owes the wife her unpaid Mahr (dowry), that debt is a <strong>liability for the husband</strong> (he can deduct it from his Zakatable wealth) and simultaneously an <strong>asset for the wife</strong> (she must include it in her own Zakat calculation, as it is a strong debt owed to her).</p>
+                `
+            },
+            rule10: {
+                title: "10. Paying in Advance (Ta'jeel al-Zakat)",
+                badge: { text: "Permissible", class: "badge-zakatable" },
+                content: `
+                    <p><em>Sometimes, a natural disaster strikes, or you find a family in desperate need, but your Zakat anniversary (e.g., Ramadan 15) is still 6 months away.</em></p>
+                    <p><strong>The Rule:</strong> The Hanafi school explicitly permits you to pay your Zakat in advance, provided you already possess the <em>Nisab</em> (minimum threshold).</p>
+                    <p><strong>How it works:</strong> You can estimate your Zakat and give the money now. When your actual Zakat date arrives in Ramadan, you do the final math. If you owe $750 but already gave $500 in advance with the intention of it being Zakat, you only owe the remaining $250. If your final math shows you only owed $400, the extra $100 you gave is simply counted as voluntary charity (<em>Sadaqah</em>).</p>
+                `
+            },
+            rule11: {
+                title: "11. Who Cannot Receive Your Zakat (The Masarif)",
+                badge: { text: "Restriction", class: "badge-exempt" },
+                content: `
+                    <p><em>Calculating the money correctly is only half of the obligation; giving it to the valid, Sharia-compliant recipients is the other half.</em></p>
+                    <p><strong>The Rule:</strong> You cannot give your Zakat to anyone whose financial maintenance is already your legal Islamic responsibility, nor to certain honored lineages.</p>
+                    <p><strong>The Exceptions:</strong> You <strong>cannot</strong> give Zakat to:</p>
+                    <ol>
+                        <li>Your ascendants (parents, grandparents).</li>
+                        <li>Your descendants (children, grandchildren).</li>
+                        <li>Your spouse (a husband cannot give Zakat to his wife, and in the classical Hanafi view, a wife cannot give Zakat to her husband).</li>
+                        <li>The descendants of the Prophet Muhammad ﷺ (the <em>Sayyids</em> or <em>Hashimites</em>), out of respect for their lineage, though they may accept gifts.</li>
+                    </ol>
+                    <p><strong>Note:</strong> You <em>can</em> (and are encouraged to) give Zakat to your siblings, aunts, uncles, or cousins, provided they meet the criteria of being poor (their net wealth is below the Nisab).</p>
+                `
+            },
+            rule12: {
+                title: "12. Zakat al-Fitr vs. Zakat al-Mal",
+                badge: { text: "Obligation", class: "badge-zakatable" },
+                content: `
+                    <p><em>Since your spreadsheet is dated "Ramadan 15," it is crucial to remember that the 2.5% we are calculating is Zakat al-Mal (the Zakat on wealth).</em></p>
+                    <p><strong>The Rule:</strong> Because we are in Ramadan, you are additionally obligated to pay <em>Zakat al-Fitr</em> (or <em>Sadaqat al-Fitr</em>) before the Eid al-Fitr prayer. This is a flat, per-person rate (usually equivalent to the cost of a few meals, determined by your local Canadian mosque, often around $10–$15 CAD) required for yourself, your spouse, and your dependent children.</p>
+                `
+            },
+            rule13: {
+                title: "13. Agricultural Produce (Ushr) and Livestock",
+                badge: { text: "Different Rate", class: "badge-conditional" },
+                content: `
+                    <p><strong>The Rule:</strong> If you ever purchase a farm, the 2.5% cash rule does not apply to your crops. Earth's produce is subject to <em>Ushr</em> (meaning one-tenth). You owe 10% of the harvest on the day it is reaped if the land is watered by rain, or 5% if you pay for the irrigation. There is no one-year waiting period (<em>Hawl</em>) for crops. Similarly, grazing livestock (cows, sheep, camels) have their own specific head-count thresholds.</p>
+                `
+            }
+        };
+
+        // ----------------- INITIALIZATION -----------------
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set today's date
+            document.getElementById('zakat-date').valueAsDate = new Date();
+            
+            // Render Fiqh Rules
+            renderFiqhRules();
+            
+            // Render History
+            renderHistory();
+            
+            // Attach Event Listeners
+            setupEventListeners();
+            
+            // Init Breakdown Buttons
+            setupBreakdowns();
+            
+            // Initial Calculation
+            calculateZakat();
+        });
+
+        function setupBreakdowns() {
+            const breakdownFields = [
+                'h-cash', 'h-gold', 'h-silver', 'h-trade', 'h-invest', 'h-receivables',
+                'w-cash', 'w-gold', 'w-silver', 'w-trade', 'w-invest', 'w-receivables',
+                'h-debts', 'h-credit', 'h-bills', 'h-mortgage',
+                'w-debts', 'w-credit', 'w-bills', 'w-mortgage'
+            ];
+
+            breakdownFields.forEach(id => {
+                const input = document.getElementById(id);
+                if(!input) return;
+                
+                input.classList.add('has-breakdown');
+                const wrapper = input.closest('.input-wrapper');
+                
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn-breakdown';
+                btn.innerHTML = '☰ Split';
+                btn.title = 'Add multiple items/accounts';
+                btn.onclick = () => openBreakdown(id);
+                
+                wrapper.appendChild(btn);
+            });
+        }
+
+        function setupEventListeners() {
+            // Tab switching
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => switchTab(e.target.dataset.tab));
+            });
+
+            // Mode Toggle
+            document.getElementById('mode-toggle').addEventListener('change', (e) => {
+                isCoupleMode = e.target.checked;
+                document.body.classList.toggle('couple-mode', isCoupleMode);
+                
+                // Toggle display of wife sections
+                document.getElementById('w-name-group').style.display = isCoupleMode ? 'block' : 'none';
+                document.getElementById('wife-assets-col').style.display = isCoupleMode ? 'block' : 'none';
+                document.getElementById('wife-deductions-col').style.display = isCoupleMode ? 'block' : 'none';
+                document.getElementById('w-results-section').style.display = isCoupleMode ? 'block' : 'none';
+                document.getElementById('h-mahr-group').style.display = isCoupleMode ? 'block' : 'none';
+                
+                // Update labels
+                document.getElementById('h-name-label').textContent = isCoupleMode ? "Husband's Name" : "Name (Solo)";
+                document.getElementById('h-wealth-label').textContent = isCoupleMode ? "Husband's Zakatable Wealth" : "Total Zakatable Wealth";
+                document.getElementById('h-zakat-label').textContent = isCoupleMode ? "Husband's Zakat al-Mal (2.5%)" : "Zakat al-Mal (2.5%)";
+                
+                calculateZakat();
+            });
+
+            // Live Calculation Events
+            const calcInputs = document.querySelectorAll('input[type="number"]');
+            calcInputs.forEach(input => {
+                input.addEventListener('input', calculateZakat);
+            });
+
+            // Mahr Sync
+            document.getElementById('h-mahr-owed').addEventListener('input', (e) => {
+                document.getElementById('w-mahr').value = e.target.value;
+                calculateZakat();
+            });
+
+            // Fiqh Search
+            document.getElementById('fiqh-search').addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                document.querySelectorAll('.rule-card').forEach(card => {
+                    const text = card.textContent.toLowerCase();
+                    card.style.display = text.includes(term) ? 'block' : 'none';
+                });
+            });
+        }
+
+        // ----------------- BREAKDOWN LOGIC -----------------
+        function getLabelForField(id) {
+            const input = document.getElementById(id);
+            const formGroup = input.closest('.form-group');
+            if (!formGroup) return "Details";
+            const labelNode = formGroup.querySelector('label');
+            if (!labelNode) return "Details";
+            let text = "";
+            labelNode.childNodes.forEach(node => {
+                if (node.nodeType === Node.TEXT_NODE) text += node.textContent;
+            });
+            return text.trim();
+        }
+
+        function openBreakdown(id) {
+            currentBreakdownId = id;
+            const label = getLabelForField(id);
+            document.getElementById('breakdown-title').textContent = label;
+            
+            const list = document.getElementById('breakdown-list');
+            list.innerHTML = '';
+            
+            const data = breakdownsData[id] || [];
+            if (data.length === 0) {
+                const currentVal = parseFloat(document.getElementById(id).value) || 0;
+                if (currentVal > 0) {
+                    addBreakdownRow('Main Account', currentVal);
+                } else {
+                    addBreakdownRow('', '');
+                }
+            } else {
+                data.forEach(item => addBreakdownRow(item.label, item.amount));
+            }
+            
+            updateBreakdownTotal();
+            document.getElementById('breakdown-modal').classList.add('active');
+        }
+
+        function closeBreakdown() {
+            document.getElementById('breakdown-modal').classList.remove('active');
+            currentBreakdownId = null;
+        }
+
+        function addBreakdownRow(label = '', amount = '') {
+            const list = document.getElementById('breakdown-list');
+            const row = document.createElement('div');
+            row.className = 'breakdown-row';
+            
+            const isCurrency = !currentBreakdownId.includes('gold') && !currentBreakdownId.includes('silver');
+            const prefix = isCurrency ? '<span style="color:var(--text-muted); font-weight:500;">$</span>' : '';
+            const step = isCurrency ? '0.01' : 'any';
+            
+            row.innerHTML = 
+                '<input type="text" placeholder="' + (isCurrency ? 'Description (e.g. RBC Savings)' : 'Item (e.g. Necklace)') + '" value="' + label + '" class="bd-label">' +
+                '<div class="bd-amount-wrapper">' +
+                    prefix +
+                    '<input type="number" placeholder="Amount" value="' + amount + '" min="0" step="' + step + '" class="bd-amount" oninput="updateBreakdownTotal()">' +
+                '</div>' +
+                '<button class="breakdown-remove" onclick="this.parentElement.remove(); updateBreakdownTotal();" title="Remove">&times;</button>';
+            
+            list.appendChild(row);
+        }
+
+        function updateBreakdownTotal() {
+            const amounts = Array.from(document.querySelectorAll('.bd-amount')).map(input => parseFloat(input.value) || 0);
+            const total = amounts.reduce((a, b) => a + b, 0);
+            
+            const isCurrency = !currentBreakdownId.includes('gold') && !currentBreakdownId.includes('silver');
+            document.getElementById('breakdown-total').textContent = isCurrency ? formatCurrency(total) : total.toFixed(2) + ' grams';
+        }
+
+        function saveBreakdown() {
+            const rows = document.querySelectorAll('.breakdown-row');
+            const data = [];
+            let total = 0;
+            
+            rows.forEach(row => {
+                const label = row.querySelector('.bd-label').value.trim();
+                const amount = parseFloat(row.querySelector('.bd-amount').value) || 0;
+                if (label || amount > 0) {
+                    data.push({ label, amount });
+                    total += amount;
+                }
+            });
+            
+            const input = document.getElementById(currentBreakdownId);
+            const btn = input.closest('.input-wrapper').querySelector('.btn-breakdown');
+            
+            if (data.length > 0) {
+                breakdownsData[currentBreakdownId] = data;
+                input.value = total;
+                input.readOnly = true;
+                input.style.backgroundColor = 'var(--bg-body)';
+                input.title = "Calculated from breakdown. Click 'Edit Split' to modify.";
+                btn.classList.add('active-breakdown');
+                btn.innerHTML = '📝 Edit Split';
+            } else {
+                delete breakdownsData[currentBreakdownId];
+                input.readOnly = false;
+                input.style.backgroundColor = '';
+                input.title = "";
+                btn.classList.remove('active-breakdown');
+                btn.innerHTML = '☰ Split';
+            }
+            
+            calculateZakat();
+            closeBreakdown();
+        }
+
+        // ----------------- UI FUNCTIONS -----------------
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+            document.getElementById(`${tabId}-tab`).classList.add('active');
+        }
+
+        function toggleSection(id) {
+            document.getElementById(id).classList.toggle('collapsed');
+        }
+
+        function openFiqh(ruleId) {
+            const rule = fiqhRules[ruleId];
+            if (!rule) return;
+            
+            const content = `
+                <h3>${rule.title}</h3>
+                ${rule.content}
+                <br>
+                <a class="drawer-link" onclick="closeDrawer(); switchTab('fiqh'); setTimeout(()=>document.getElementById('card-${ruleId}').classList.add('active'), 100);">View in Fiqh Tab &rarr;</a>
+            `;
+            
+            document.getElementById('drawer-content').innerHTML = content;
+            document.getElementById('fiqh-drawer').classList.add('active');
+            document.getElementById('drawer-overlay').classList.add('active');
+        }
+
+        function closeDrawer() {
+            document.getElementById('fiqh-drawer').classList.remove('active');
+            document.getElementById('drawer-overlay').classList.remove('active');
+        }
+
+        function renderFiqhRules() {
+            const container = document.getElementById('fiqh-accordion');
+            let html = '';
+            
+            for (const [id, rule] of Object.entries(fiqhRules)) {
+                html += `
+                    <div class="rule-card" id="card-${id}">
+                        <div class="rule-header" onclick="this.parentElement.classList.toggle('active')">
+                            <div>${rule.title} <span class="badge ${rule.badge.class}">${rule.badge.text}</span></div>
+                            <span class="rule-icon">▼</span>
+                        </div>
+                        <div class="rule-content">
+                            ${rule.content}
+                        </div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+        }
+
+        // ----------------- CORE LOGIC -----------------
+        function getVal(id) {
+            return parseFloat(document.getElementById(id).value) || 0;
+        }
+
+        function formatCurrency(num) {
+            return num.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' });
+        }
+
+        function calculateZakat() {
+            // 1. Nisab Threshold
+            const silverPrice = getVal('silver-price');
+            const goldPrice = getVal('gold-price');
+            const nisabThreshold = silverPrice * silverNisabWeight;
+            document.getElementById('nisab-value').textContent = formatCurrency(nisabThreshold);
+
+            // 2. Riba Cleansing
+            const riba = getVal('riba-amount');
+
+            // 3. Husband / Solo Calculation
+            // Gold and Silver value
+            const hGoldGrams = getVal('h-gold');
+            const hGoldValue = hGoldGrams * goldPrice;
+            document.getElementById('h-gold-val').textContent = hGoldValue.toFixed(2);
+
+            const hSilverGrams = getVal('h-silver');
+            const hSilverValue = hSilverGrams * silverPrice;
+            document.getElementById('h-silver-val').textContent = hSilverValue.toFixed(2);
+
+            // Assets
+            let hCash = getVal('h-cash') - riba;
+            if (hCash < 0) hCash = 0; // Can't have negative cash after Riba removal
+            
+            const hAssets = hCash + hGoldValue + hSilverValue + getVal('h-trade') + getVal('h-invest') + getVal('h-receivables');
+            
+            // Deductions
+            const hDeductions = getVal('h-debts') + getVal('h-credit') + getVal('h-bills') + getVal('h-mortgage') + (isCoupleMode ? getVal('h-mahr-owed') : 0);
+            
+            // Net & Zakat
+            const hNetWealth = hAssets - hDeductions;
+            const hNisabMet = hNetWealth >= nisabThreshold;
+            const hZakat = hNisabMet ? hNetWealth * 0.025 : 0;
+
+            // Update UI - Husband
+            document.getElementById('h-net-wealth').textContent = formatCurrency(hNetWealth < 0 ? 0 : hNetWealth);
+            document.getElementById('h-zakat-mal').textContent = formatCurrency(hZakat);
+            
+            const hBadge = document.getElementById('h-nisab-badge');
+            if (hNisabMet) {
+                hBadge.textContent = "Nisab Met";
+                hBadge.className = "nisab-status status-met";
+            } else {
+                hBadge.textContent = "Nisab Not Met";
+                hBadge.className = "nisab-status status-not-met";
+            }
+
+            // 4. Wife Calculation (if active)
+            let wZakat = 0;
+            if (isCoupleMode) {
+                const wGoldGrams = getVal('w-gold');
+                const wGoldValue = wGoldGrams * goldPrice;
+                document.getElementById('w-gold-val').textContent = wGoldValue.toFixed(2);
+
+                const wSilverGrams = getVal('w-silver');
+                const wSilverValue = wSilverGrams * silverPrice;
+                document.getElementById('w-silver-val').textContent = wSilverValue.toFixed(2);
+
+                const wAssets = getVal('w-cash') + wGoldValue + wSilverValue + getVal('w-trade') + getVal('w-invest') + getVal('w-receivables') + getVal('w-mahr');
+                const wDeductions = getVal('w-debts') + getVal('w-credit') + getVal('w-bills') + getVal('w-mortgage');
+                
+                const wNetWealth = wAssets - wDeductions;
+                const wNisabMet = wNetWealth >= nisabThreshold;
+                wZakat = wNisabMet ? wNetWealth * 0.025 : 0;
+
+                // Update UI - Wife
+                document.getElementById('w-net-wealth').textContent = formatCurrency(wNetWealth < 0 ? 0 : wNetWealth);
+                document.getElementById('w-zakat-mal').textContent = formatCurrency(wZakat);
+                
+                const wBadge = document.getElementById('w-nisab-badge');
+                if (wNisabMet) {
+                    wBadge.textContent = "Wife: Nisab Met";
+                    wBadge.className = "nisab-status status-met";
+                } else {
+                    wBadge.textContent = "Wife: Nisab Not Met";
+                    wBadge.className = "nisab-status status-not-met";
+                }
+            }
+
+            // 5. Zakat al-Fitr
+            const fitrTotal = getVal('fitr-count') * getVal('fitr-rate');
+            document.getElementById('fitr-total').textContent = formatCurrency(fitrTotal);
+
+            // 6. Grand Total
+            const grandTotal = hZakat + wZakat + fitrTotal;
+            document.getElementById('grand-total').textContent = grandTotal.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        // ----------------- DATA PERSISTENCE -----------------
+        function saveRecord() {
+            const hName = document.getElementById('h-name').value.trim();
+            const wName = document.getElementById('w-name').value.trim();
+            
+            const record = {
+                id: Date.now(),
+                hName: hName,
+                wName: isCoupleMode ? wName : '',
+                label: document.getElementById('year-label').value,
+                date: document.getElementById('zakat-date').value,
+                mode: isCoupleMode ? 'Couple' : 'Solo',
+                nisabThreshold: getVal('silver-price') * silverNisabWeight,
+                totalZakatMal: parseFloat(document.getElementById('h-zakat-mal').textContent.replace(/[^0-9.-]+/g,"")) + (isCoupleMode ? parseFloat(document.getElementById('w-zakat-mal').textContent.replace(/[^0-9.-]+/g,"")) : 0),
+                fitrTotal: getVal('fitr-count') * getVal('fitr-rate'),
+                grandTotal: parseFloat(document.getElementById('grand-total').textContent.replace(/[^0-9.-]+/g,"")),
+                breakdowns: JSON.parse(JSON.stringify(breakdownsData)) // Deep copy of breakdowns
+            };
+
+            let records = JSON.parse(localStorage.getItem('zakatRecords')) || [];
+            records.unshift(record); // Add to beginning
+            localStorage.setItem('zakatRecords', JSON.stringify(records));
+            
+            alert('Record saved successfully!');
+            renderHistory();
+            switchTab('history');
+        }
+
+        function renderHistory() {
+            const records = JSON.parse(localStorage.getItem('zakatRecords')) || [];
+            const container = document.getElementById('history-container');
+            
+            if (records.length === 0) {
+                container.innerHTML = '<div class="empty-state">No saved records yet. Save your first calculation to see it here.</div>';
+                return;
+            }
+
+            let html = '';
+            records.forEach(rec => {
+                let nameDisplay = rec.hName ? rec.hName : 'Unknown';
+                if (rec.mode === 'Couple' && rec.wName) {
+                    nameDisplay += ` & ${rec.wName}`;
+                }
+                
+                html += `
+                    <div class="history-card" onclick="openPreviewModal(${rec.id})">
+                        <div class="history-year">${rec.label}</div>
+                        <div class="history-row"><span>Name(s):</span> <span>${nameDisplay}</span></div>
+                        <div class="history-row"><span>Date:</span> <span>${rec.date}</span></div>
+                        <div class="history-row"><span>Mode:</span> <span>${rec.mode}</span></div>
+                        <div class="history-row"><span>Nisab Used:</span> <span>${formatCurrency(rec.nisabThreshold)}</span></div>
+                        <div class="history-row"><span>Zakat al-Mal:</span> <span>${formatCurrency(rec.totalZakatMal)}</span></div>
+                        <div class="history-row"><span>Zakat al-Fitr:</span> <span>${formatCurrency(rec.fitrTotal)}</span></div>
+                        <div class="history-total">Total Paid: ${formatCurrency(rec.grandTotal)}</div>
+                        <div style="margin-top:12px; font-size:0.8rem; color:var(--text-muted); text-align:center; font-style:italic;">Click to view full details</div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // ----------------- PREVIEW MODAL -----------------
+        function openPreviewModal(id) {
+            const records = JSON.parse(localStorage.getItem('zakatRecords')) || [];
+            const rec = records.find(r => r.id === id);
+            if (!rec) return;
+
+            let nameDisplay = rec.hName ? rec.hName : '';
+            if (rec.mode === 'Couple' && rec.wName) nameDisplay += ` & ${rec.wName}`;
+
+            document.getElementById('preview-title').textContent = rec.label || 'Zakat Record';
+
+            // Build summary rows
+            let summaryRows = '';
+            if (nameDisplay) summaryRows += `<div class="preview-summary-row"><span>${rec.mode === 'Couple' ? 'Name(s)' : 'Name'}</span><span>${nameDisplay}</span></div>`;
+            summaryRows += `<div class="preview-summary-row"><span>Date</span><span>${rec.date}</span></div>`;
+            summaryRows += `<div class="preview-summary-row"><span>Mode</span><span>${rec.mode}</span></div>`;
+            summaryRows += `<div class="preview-summary-row"><span>Nisab (Silver Standard)</span><span>${formatCurrency(rec.nisabThreshold)}</span></div>`;
+            summaryRows += `<div class="preview-summary-row"><span>Zakat al-Mal (2.5%)</span><span>${formatCurrency(rec.totalZakatMal)}</span></div>`;
+            summaryRows += `<div class="preview-summary-row"><span>Zakat al-Fitr</span><span>${formatCurrency(rec.fitrTotal)}</span></div>`;
+
+            // Build breakdowns
+            let breakdownHtml = '';
+            if (rec.breakdowns && Object.keys(rec.breakdowns).length > 0) {
+                const fieldLabelMap = {
+                    'h-cash': 'Cash (Husband)', 'h-gold': 'Gold (Husband)', 'h-silver': 'Silver (Husband)',
+                    'h-trade': 'Business Inventory (Husband)', 'h-invest': 'Investments (Husband)', 'h-receivables': 'Receivables (Husband)',
+                    'w-cash': 'Cash (Wife)', 'w-gold': 'Gold (Wife)', 'w-silver': 'Silver (Wife)',
+                    'w-trade': 'Business Inventory (Wife)', 'w-invest': 'Investments (Wife)', 'w-receivables': 'Receivables (Wife)',
+                    'h-debts': 'Personal Loans (Husband)', 'h-credit': 'Credit Cards (Husband)',
+                    'h-bills': 'Bills (Husband)', 'h-mortgage': 'Mortgage (Husband)',
+                    'w-debts': 'Personal Loans (Wife)', 'w-credit': 'Credit Cards (Wife)',
+                    'w-bills': 'Bills (Wife)', 'w-mortgage': 'Mortgage (Wife)'
+                };
+
+                breakdownHtml = `<div class="preview-breakdown-section"><h3>📋 Detailed Breakdown</h3>`;
+
+                for (const [fieldId, items] of Object.entries(rec.breakdowns)) {
+                    if (!items || items.length === 0) continue;
+                    const isGrams = fieldId.includes('gold') || fieldId.includes('silver');
+                    const fieldLabel = fieldLabelMap[fieldId] || fieldId;
+                    let total = 0;
+                    let rows = '';
+                    items.forEach(item => {
+                        total += item.amount;
+                        rows += `<tr><td>${item.label || 'Item'}</td><td>${isGrams ? item.amount + ' g' : formatCurrency(item.amount)}</td></tr>`;
+                    });
+                    rows += `<tr><td style="text-align:right; color:var(--text-muted);">Total</td><td style="font-weight:700;">${isGrams ? total + ' g' : formatCurrency(total)}</td></tr>`;
+
+                    breakdownHtml += `
+                        <div class="preview-breakdown-item">
+                            <h4>${fieldLabel}</h4>
+                            <table class="preview-breakdown-table">${rows}</table>
+                        </div>`;
+                }
+                breakdownHtml += `</div>`;
+            }
+
+            document.getElementById('preview-modal-body').innerHTML = `
+                <div class="preview-summary-grid">${summaryRows}</div>
+                <div class="preview-total-box">
+                    <span class="label">Total Payable</span>
+                    <span class="amount">${formatCurrency(rec.grandTotal)}</span>
+                </div>
+                ${breakdownHtml}
+                <p style="text-align:center; font-style:italic; color:var(--text-muted); font-size:0.9rem; margin-top:20px;">May Allah accept your Zakat and purify your wealth.</p>
+            `;
+
+            document.getElementById('preview-print-btn').onclick = () => printRecord(id);
+            document.getElementById('preview-delete-btn').onclick = () => {
+                if (confirm('Delete this record?')) {
+                    let records = JSON.parse(localStorage.getItem('zakatRecords')) || [];
+                    records = records.filter(r => r.id !== id);
+                    localStorage.setItem('zakatRecords', JSON.stringify(records));
+                    closePreviewModal();
+                    renderHistory();
+                }
+            };
+
+            document.getElementById('preview-modal-overlay').classList.add('active');
+        }
+
+        function closePreviewModal(event) {
+            if (event && event.target !== document.getElementById('preview-modal-overlay')) return;
+            document.getElementById('preview-modal-overlay').classList.remove('active');
+        }
+
+        function deleteRecord(id) {
+            if(confirm('Are you sure you want to delete this record?')) {
+                let records = JSON.parse(localStorage.getItem('zakatRecords')) || [];
+                records = records.filter(r => r.id !== id);
+                localStorage.setItem('zakatRecords', JSON.stringify(records));
+                renderHistory();
+            }
+        }
+
+        function printRecord(id) {
+            const records = JSON.parse(localStorage.getItem('zakatRecords')) || [];
+            const rec = records.find(r => r.id === id);
+            if(!rec) return;
+
+            // Generate breakdown HTML
+            let breakdownsHtml = '';
+            if (rec.breakdowns && Object.keys(rec.breakdowns).length > 0) {
+                breakdownsHtml = '<h2 style="color: #1a6b5e; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Detailed Breakdown</h2>';
+                for (const [fieldId, items] of Object.entries(rec.breakdowns)) {
+                    if (items && items.length > 0) {
+                        // Extract a nice name from the field ID (e.g. h-cash -> Husband Cash)
+                        let fieldName = fieldId.replace('h-', 'Husband: ').replace('w-', 'Wife: ').replace('-', ' ');
+                        fieldName = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
+                        
+                        breakdownsHtml += `<h3 style="margin-top: 15px; margin-bottom: 5px; font-size: 1em; color: #555;">${fieldName}</h3>`;
+                        breakdownsHtml += `<table style="width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 0.9em;">`;
+                        
+                        let total = 0;
+                        const isGrams = fieldId.includes('gold') || fieldId.includes('silver');
+                        
+                        items.forEach(item => {
+                            breakdownsHtml += `<tr>
+                                <td style="padding: 4px; border-bottom: 1px dashed #eee;">${item.label || 'Item'}</td>
+                                <td style="padding: 4px; border-bottom: 1px dashed #eee; text-align: right;">${isGrams ? item.amount + 'g' : formatCurrency(item.amount)}</td>
+                            </tr>`;
+                            total += item.amount;
+                        });
+                        
+                        breakdownsHtml += `<tr>
+                            <td style="padding: 4px; font-weight: bold; text-align: right;">Total:</td>
+                            <td style="padding: 4px; font-weight: bold; text-align: right;">${isGrams ? total + 'g' : formatCurrency(total)}</td>
+                        </tr></table>`;
+                    }
+                }
+            }
+
+            const printWin = window.open('', '', 'width=600,height=800');
+            printWin.document.write(`
+                <html>
+                <head>
+                    <title>Zakat Record - ${rec.label}</title>
+                    <style>
+                        body { font-family: sans-serif; padding: 20px; line-height: 1.6; max-width: 800px; margin: 0 auto; }
+                        h1 { color: #1a6b5e; border-bottom: 2px solid #c9a84c; padding-bottom: 10px; }
+                        .row { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 8px 0; }
+                        .total { font-size: 1.2em; font-weight: bold; margin-top: 20px; padding-top: 10px; border-top: 2px dashed #000; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Zakat Receipt: ${rec.label}</h1>
+                    ${rec.hName ? `<div class="row"><span>${rec.mode === 'Couple' ? "Husband's Name" : "Name"}:</span> <span>${rec.hName}</span></div>` : ''}
+                    ${rec.mode === 'Couple' && rec.wName ? `<div class="row"><span>Wife's Name:</span> <span>${rec.wName}</span></div>` : ''}
+                    <div class="row"><span>Date Computed:</span> <span>${rec.date}</span></div>
+                    <div class="row"><span>Mode:</span> <span>${rec.mode}</span></div>
+                    <div class="row"><span>Nisab Standard (Silver):</span> <span>${formatCurrency(rec.nisabThreshold)}</span></div>
+                    <div class="row"><span>Zakat al-Mal (2.5%):</span> <span>${formatCurrency(rec.totalZakatMal)}</span></div>
+                    <div class="row"><span>Zakat al-Fitr:</span> <span>${formatCurrency(rec.fitrTotal)}</span></div>
+                    <div class="row total"><span>Total Payable:</span> <span>${formatCurrency(rec.grandTotal)}</span></div>
+                    
+                    ${breakdownsHtml}
+
+                    <br><br>
+                    <p style="text-align:center; font-style:italic; color:#666; margin-top: 40px;">May Allah accept your Zakat and purify your wealth.</p>
+                </body>
+                </html>
+            `);
+            printWin.document.close();
+            printWin.focus();
+            setTimeout(() => { printWin.print(); printWin.close(); }, 500);
+        }
+    </script>
+</body>
+</html>
