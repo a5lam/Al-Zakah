@@ -1,28 +1,56 @@
-{
-  "name": "Zakah Companion",
-  "short_name": "Zakah",
-  "description": "A Hanafi Fiqh-compliant Zakat calculator with yearly records. Calculate Zakat al-Mal and Zakat al-Fitr with full breakdown support.",
-  "start_url": "./index.html",
-  "scope": "./",
-  "display": "standalone",
-  "orientation": "portrait",
-  "theme_color": "#1a6b5e",
-  "background_color": "#fdfaf6",
-  "lang": "en",
-  "icons": [
-    {
-      "src": "icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
-  "categories": ["finance", "lifestyle", "utilities"],
-  "screenshots": []
-}
+// Zakah Companion - Service Worker
+const CACHE_NAME = 'zakah-companion-v1';
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png'
+];
+
+// Install: Cache all assets
+self.addEventListener('install', event => {
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.addAll(ASSETS);
+      self.skipWaiting();
+    })()
+  );
+});
+
+// Activate: Remove old caches
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+      );
+      self.clients.claim();
+    })()
+  );
+});
+
+// Fetch: Serve from cache first, fall back to network
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+
+  event.respondWith(
+    (async () => {
+      const cachedResponse = await caches.match(event.request);
+      if (cachedResponse) return cachedResponse;
+
+      try {
+        const networkResponse = await fetch(event.request);
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type !== 'opaque') {
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(event.request, networkResponse.clone());
+        }
+        return networkResponse;
+      } catch (error) {
+        return caches.match('./index.html');
+      }
+    })()
+  );
+});

@@ -678,16 +678,41 @@
         // ----------------- PWA SERVICE WORKER REGISTRATION -----------------
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('✅ Zakah Companion: Service Worker registered', reg.scope))
-                    .catch(err => console.warn('SW registration failed:', err));
+                navigator.serviceWorker.register('./sw.js').catch(() => {});
             });
         }
 
+        // ----------------- CONSTANTS & CONFIG -----------------
+        const SILVER_NISAB_WEIGHT = 612.36; // grams
+        const ZAKAT_RATE = 0.025;
+        const STORAGE_KEY = 'zakatRecords';
+
+        const BREAKDOWN_FIELDS = [
+            'h-cash', 'h-gold', 'h-silver', 'h-trade', 'h-invest', 'h-receivables',
+            'w-cash', 'w-gold', 'w-silver', 'w-trade', 'w-invest', 'w-receivables',
+            'h-debts', 'h-credit', 'h-bills', 'h-mortgage',
+            'w-debts', 'w-credit', 'w-bills', 'w-mortgage'
+        ];
+
+        const FIELD_LABEL_MAP = {
+            'h-cash': 'Cash (Husband)', 'h-gold': 'Gold (Husband)', 'h-silver': 'Silver (Husband)',
+            'h-trade': 'Business Inventory (Husband)', 'h-invest': 'Investments (Husband)', 'h-receivables': 'Receivables (Husband)',
+            'w-cash': 'Cash (Wife)', 'w-gold': 'Gold (Wife)', 'w-silver': 'Silver (Wife)',
+            'w-trade': 'Business Inventory (Wife)', 'w-invest': 'Investments (Wife)', 'w-receivables': 'Receivables (Wife)',
+            'h-debts': 'Personal Loans (Husband)', 'h-credit': 'Credit Cards (Husband)',
+            'h-bills': 'Bills (Husband)', 'h-mortgage': 'Mortgage (Husband)',
+            'w-debts': 'Personal Loans (Wife)', 'w-credit': 'Credit Cards (Wife)',
+            'w-bills': 'Bills (Wife)', 'w-mortgage': 'Mortgage (Wife)'
+        };
+
+        const COUPLE_MODE_ELEMENTS = [
+            'w-name-group', 'wife-assets-col', 'wife-deductions-col', 
+            'w-results-section', 'h-mahr-group'
+        ];
+
         // ----------------- STATE & DATA -----------------
         let isCoupleMode = false;
-        let silverNisabWeight = 612.36; // grams
-        let breakdownsData = {}; // Stores breakdown data
+        let breakdownsData = {}; 
         let currentBreakdownId = null;
         
         const fiqhRules = {
@@ -829,40 +854,38 @@
 
         // ----------------- INITIALIZATION -----------------
         document.addEventListener('DOMContentLoaded', () => {
-            // Set today's date
             document.getElementById('zakat-date').valueAsDate = new Date();
-            
-            // Render Fiqh Rules
             renderFiqhRules();
-            
-            // Render History
             renderHistory();
-            
-            // Attach Event Listeners
             setupEventListeners();
-            
-            // Init Breakdown Buttons
             setupBreakdowns();
-            
-            // Initial Calculation
             calculateZakat();
         });
 
-        function setupBreakdowns() {
-            const breakdownFields = [
-                'h-cash', 'h-gold', 'h-silver', 'h-trade', 'h-invest', 'h-receivables',
-                'w-cash', 'w-gold', 'w-silver', 'w-trade', 'w-invest', 'w-receivables',
-                'h-debts', 'h-credit', 'h-bills', 'h-mortgage',
-                'w-debts', 'w-credit', 'w-bills', 'w-mortgage'
-            ];
+        // ----------------- HELPERS -----------------
+        const getVal = id => parseFloat(document.getElementById(id).value) || 0;
+        const formatCurrency = num => num.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' });
+        const getStoredRecords = () => JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+        const setStoredRecords = records => localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
 
-            breakdownFields.forEach(id => {
+        function updateNisabBadge(prefix, isMet) {
+            const badge = document.getElementById(`${prefix}-nisab-badge`);
+            if (isMet) {
+                badge.textContent = prefix === 'w' ? "Wife: Nisab Met" : "Nisab Met";
+                badge.className = "nisab-status status-met";
+            } else {
+                badge.textContent = prefix === 'w' ? "Wife: Nisab Not Met" : "Nisab Not Met";
+                badge.className = "nisab-status status-not-met";
+            }
+        }
+
+        // ----------------- BREAKDOWN LOGIC -----------------
+        function setupBreakdowns() {
+            BREAKDOWN_FIELDS.forEach(id => {
                 const input = document.getElementById(id);
                 if(!input) return;
                 
                 input.classList.add('has-breakdown');
-                const wrapper = input.closest('.input-wrapper');
-                
                 const btn = document.createElement('button');
                 btn.type = 'button';
                 btn.className = 'btn-breakdown';
@@ -870,88 +893,27 @@
                 btn.title = 'Add multiple items/accounts';
                 btn.onclick = () => openBreakdown(id);
                 
-                wrapper.appendChild(btn);
+                input.closest('.input-wrapper').appendChild(btn);
             });
         }
 
-        function setupEventListeners() {
-            // Tab switching
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => switchTab(e.target.dataset.tab));
-            });
-
-            // Mode Toggle
-            document.getElementById('mode-toggle').addEventListener('change', (e) => {
-                isCoupleMode = e.target.checked;
-                document.body.classList.toggle('couple-mode', isCoupleMode);
-                
-                // Toggle display of wife sections
-                document.getElementById('w-name-group').style.display = isCoupleMode ? 'block' : 'none';
-                document.getElementById('wife-assets-col').style.display = isCoupleMode ? 'block' : 'none';
-                document.getElementById('wife-deductions-col').style.display = isCoupleMode ? 'block' : 'none';
-                document.getElementById('w-results-section').style.display = isCoupleMode ? 'block' : 'none';
-                document.getElementById('h-mahr-group').style.display = isCoupleMode ? 'block' : 'none';
-                
-                // Update labels
-                document.getElementById('h-name-label').textContent = isCoupleMode ? "Husband's Name" : "Name (Solo)";
-                document.getElementById('h-wealth-label').textContent = isCoupleMode ? "Husband's Zakatable Wealth" : "Total Zakatable Wealth";
-                document.getElementById('h-zakat-label').textContent = isCoupleMode ? "Husband's Zakat al-Mal (2.5%)" : "Zakat al-Mal (2.5%)";
-                
-                calculateZakat();
-            });
-
-            // Live Calculation Events
-            const calcInputs = document.querySelectorAll('input[type="number"]');
-            calcInputs.forEach(input => {
-                input.addEventListener('input', calculateZakat);
-            });
-
-            // Mahr Sync
-            document.getElementById('h-mahr-owed').addEventListener('input', (e) => {
-                document.getElementById('w-mahr').value = e.target.value;
-                calculateZakat();
-            });
-
-            // Fiqh Search
-            document.getElementById('fiqh-search').addEventListener('input', (e) => {
-                const term = e.target.value.toLowerCase();
-                document.querySelectorAll('.rule-card').forEach(card => {
-                    const text = card.textContent.toLowerCase();
-                    card.style.display = text.includes(term) ? 'block' : 'none';
-                });
-            });
-        }
-
-        // ----------------- BREAKDOWN LOGIC -----------------
         function getLabelForField(id) {
-            const input = document.getElementById(id);
-            const formGroup = input.closest('.form-group');
-            if (!formGroup) return "Details";
-            const labelNode = formGroup.querySelector('label');
-            if (!labelNode) return "Details";
-            let text = "";
-            labelNode.childNodes.forEach(node => {
-                if (node.nodeType === Node.TEXT_NODE) text += node.textContent;
-            });
-            return text.trim();
+            const labelNode = document.getElementById(id)?.closest('.form-group')?.querySelector('label');
+            return labelNode ? Array.from(labelNode.childNodes)
+                .filter(node => node.nodeType === Node.TEXT_NODE)
+                .map(node => node.textContent)
+                .join('').trim() : "Details";
         }
 
         function openBreakdown(id) {
             currentBreakdownId = id;
-            const label = getLabelForField(id);
-            document.getElementById('breakdown-title').textContent = label;
-            
-            const list = document.getElementById('breakdown-list');
-            list.innerHTML = '';
+            document.getElementById('breakdown-title').textContent = getLabelForField(id);
+            document.getElementById('breakdown-list').innerHTML = '';
             
             const data = breakdownsData[id] || [];
             if (data.length === 0) {
-                const currentVal = parseFloat(document.getElementById(id).value) || 0;
-                if (currentVal > 0) {
-                    addBreakdownRow('Main Account', currentVal);
-                } else {
-                    addBreakdownRow('', '');
-                }
+                const currentVal = getVal(id);
+                addBreakdownRow(currentVal > 0 ? 'Main Account' : '', currentVal > 0 ? currentVal : '');
             } else {
                 data.forEach(item => addBreakdownRow(item.label, item.amount));
             }
@@ -975,22 +937,16 @@
             const step = isCurrency ? '0.01' : 'any';
             
             row.innerHTML = 
-                '<input type="text" placeholder="' + (isCurrency ? 'Description (e.g. RBC Savings)' : 'Item (e.g. Necklace)') + '" value="' + label + '" class="bd-label">' +
-                '<div class="bd-amount-wrapper">' +
-                    prefix +
-                    '<input type="number" placeholder="Amount" value="' + amount + '" min="0" step="' + step + '" class="bd-amount" oninput="updateBreakdownTotal()">' +
-                '</div>' +
-                '<button class="breakdown-remove" onclick="this.parentElement.remove(); updateBreakdownTotal();" title="Remove">&times;</button>';
-            
+                `<input type="text" placeholder="${isCurrency ? 'Description (e.g. RBC Savings)' : 'Item (e.g. Necklace)'}" value="${label}" class="bd-label">` +
+                `<div class="bd-amount-wrapper">${prefix}<input type="number" placeholder="Amount" value="${amount}" min="0" step="${step}" class="bd-amount" oninput="updateBreakdownTotal()"></div>` +
+                `<button class="breakdown-remove" onclick="this.parentElement.remove(); updateBreakdownTotal();" title="Remove">&times;</button>`;
             list.appendChild(row);
         }
 
         function updateBreakdownTotal() {
-            const amounts = Array.from(document.querySelectorAll('.bd-amount')).map(input => parseFloat(input.value) || 0);
-            const total = amounts.reduce((a, b) => a + b, 0);
-            
+            const total = Array.from(document.querySelectorAll('.bd-amount')).reduce((a, input) => a + (parseFloat(input.value) || 0), 0);
             const isCurrency = !currentBreakdownId.includes('gold') && !currentBreakdownId.includes('silver');
-            document.getElementById('breakdown-total').textContent = isCurrency ? formatCurrency(total) : total.toFixed(2) + ' grams';
+            document.getElementById('breakdown-total').textContent = isCurrency ? formatCurrency(total) : `${total.toFixed(2)} grams`;
         }
 
         function saveBreakdown() {
@@ -1033,11 +989,8 @@
 
         // ----------------- UI FUNCTIONS -----------------
         function switchTab(tabId) {
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-            
-            document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
-            document.getElementById(`${tabId}-tab`).classList.add('active');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabId));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.toggle('active', content.id === `${tabId}-tab`));
         }
 
         function toggleSection(id) {
@@ -1048,14 +1001,10 @@
             const rule = fiqhRules[ruleId];
             if (!rule) return;
             
-            const content = `
-                <h3>${rule.title}</h3>
-                ${rule.content}
-                <br>
+            document.getElementById('drawer-content').innerHTML = `
+                <h3>${rule.title}</h3>${rule.content}<br>
                 <a class="drawer-link" onclick="closeDrawer(); switchTab('fiqh'); setTimeout(()=>document.getElementById('card-${ruleId}').classList.add('active'), 100);">View in Fiqh Tab &rarr;</a>
             `;
-            
-            document.getElementById('drawer-content').innerHTML = content;
             document.getElementById('fiqh-drawer').classList.add('active');
             document.getElementById('drawer-overlay').classList.add('active');
         }
@@ -1066,144 +1015,124 @@
         }
 
         function renderFiqhRules() {
-            const container = document.getElementById('fiqh-accordion');
-            let html = '';
-            
-            for (const [id, rule] of Object.entries(fiqhRules)) {
-                html += `
-                    <div class="rule-card" id="card-${id}">
-                        <div class="rule-header" onclick="this.parentElement.classList.toggle('active')">
-                            <div>${rule.title} <span class="badge ${rule.badge.class}">${rule.badge.text}</span></div>
-                            <span class="rule-icon">▼</span>
-                        </div>
-                        <div class="rule-content">
-                            ${rule.content}
-                        </div>
+            document.getElementById('fiqh-accordion').innerHTML = Object.entries(fiqhRules).map(([id, rule]) => `
+                <div class="rule-card" id="card-${id}">
+                    <div class="rule-header" onclick="this.parentElement.classList.toggle('active')">
+                        <div>${rule.title} <span class="badge ${rule.badge.class}">${rule.badge.text}</span></div>
+                        <span class="rule-icon">▼</span>
                     </div>
-                `;
-            }
-            container.innerHTML = html;
+                    <div class="rule-content">${rule.content}</div>
+                </div>
+            `).join('');
+        }
+
+        function setupEventListeners() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', e => switchTab(e.target.dataset.tab));
+            });
+
+            document.getElementById('mode-toggle').addEventListener('change', e => {
+                isCoupleMode = e.target.checked;
+                document.body.classList.toggle('couple-mode', isCoupleMode);
+                
+                const displayStyle = isCoupleMode ? 'block' : 'none';
+                COUPLE_MODE_ELEMENTS.forEach(id => {
+                    document.getElementById(id).style.display = displayStyle;
+                });
+                
+                document.getElementById('h-name-label').textContent = isCoupleMode ? "Husband's Name" : "Name (Solo)";
+                document.getElementById('h-wealth-label').textContent = isCoupleMode ? "Husband's Zakatable Wealth" : "Total Zakatable Wealth";
+                document.getElementById('h-zakat-label').textContent = isCoupleMode ? `Husband's Zakat al-Mal (${ZAKAT_RATE * 100}%)` : `Zakat al-Mal (${ZAKAT_RATE * 100}%)`;
+                
+                calculateZakat();
+            });
+
+            document.querySelectorAll('input[type="number"]').forEach(input => {
+                input.addEventListener('input', calculateZakat);
+            });
+
+            // Mahr Sync: Only updates when husband's Mahr liability changes
+            document.getElementById('h-mahr-owed').addEventListener('input', e => {
+                document.getElementById('w-mahr').value = e.target.value;
+                calculateZakat();
+            });
+
+            document.getElementById('fiqh-search').addEventListener('input', e => {
+                const term = e.target.value.toLowerCase();
+                document.querySelectorAll('.rule-card').forEach(card => {
+                    card.style.display = card.textContent.toLowerCase().includes(term) ? 'block' : 'none';
+                });
+            });
         }
 
         // ----------------- CORE LOGIC -----------------
-        function getVal(id) {
-            return parseFloat(document.getElementById(id).value) || 0;
-        }
+        function calculatePerson(prefix, nisabThreshold, silverPrice, goldPrice, riba = 0) {
+            const goldGrams = getVal(`${prefix}-gold`);
+            const goldValue = goldGrams * goldPrice;
+            document.getElementById(`${prefix}-gold-val`).textContent = goldValue.toFixed(2);
 
-        function formatCurrency(num) {
-            return num.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' });
+            const silverGrams = getVal(`${prefix}-silver`);
+            const silverValue = silverGrams * silverPrice;
+            document.getElementById(`${prefix}-silver-val`).textContent = silverValue.toFixed(2);
+
+            // Riba cleansing (floor cash at zero)
+            const cash = Math.max(0, getVal(`${prefix}-cash`) - riba);
+            
+            const extraAssets = prefix === 'h' ? 0 : getVal('w-mahr');
+            const extraDeductions = prefix === 'h' && isCoupleMode ? getVal('h-mahr-owed') : 0;
+
+            const assets = cash + goldValue + silverValue + getVal(`${prefix}-trade`) + getVal(`${prefix}-invest`) + getVal(`${prefix}-receivables`) + extraAssets;
+            const deductions = getVal(`${prefix}-debts`) + getVal(`${prefix}-credit`) + getVal(`${prefix}-bills`) + getVal(`${prefix}-mortgage`) + extraDeductions;
+            
+            const netWealth = assets - deductions;
+            const nisabMet = netWealth >= nisabThreshold;
+            const zakat = nisabMet ? netWealth * ZAKAT_RATE : 0;
+
+            document.getElementById(`${prefix}-net-wealth`).textContent = formatCurrency(Math.max(0, netWealth));
+            document.getElementById(`${prefix}-zakat-mal`).textContent = formatCurrency(zakat);
+            updateNisabBadge(prefix, nisabMet);
+
+            return zakat;
         }
 
         function calculateZakat() {
-            // 1. Nisab Threshold
             const silverPrice = getVal('silver-price');
             const goldPrice = getVal('gold-price');
-            const nisabThreshold = silverPrice * silverNisabWeight;
+            const nisabThreshold = silverPrice * SILVER_NISAB_WEIGHT;
             document.getElementById('nisab-value').textContent = formatCurrency(nisabThreshold);
 
-            // 2. Riba Cleansing
-            const riba = getVal('riba-amount');
+            const hZakat = calculatePerson('h', nisabThreshold, silverPrice, goldPrice, getVal('riba-amount'));
+            const wZakat = isCoupleMode ? calculatePerson('w', nisabThreshold, silverPrice, goldPrice) : 0;
 
-            // 3. Husband / Solo Calculation
-            // Gold and Silver value
-            const hGoldGrams = getVal('h-gold');
-            const hGoldValue = hGoldGrams * goldPrice;
-            document.getElementById('h-gold-val').textContent = hGoldValue.toFixed(2);
-
-            const hSilverGrams = getVal('h-silver');
-            const hSilverValue = hSilverGrams * silverPrice;
-            document.getElementById('h-silver-val').textContent = hSilverValue.toFixed(2);
-
-            // Assets
-            let hCash = getVal('h-cash') - riba;
-            if (hCash < 0) hCash = 0; // Can't have negative cash after Riba removal
-            
-            const hAssets = hCash + hGoldValue + hSilverValue + getVal('h-trade') + getVal('h-invest') + getVal('h-receivables');
-            
-            // Deductions
-            const hDeductions = getVal('h-debts') + getVal('h-credit') + getVal('h-bills') + getVal('h-mortgage') + (isCoupleMode ? getVal('h-mahr-owed') : 0);
-            
-            // Net & Zakat
-            const hNetWealth = hAssets - hDeductions;
-            const hNisabMet = hNetWealth >= nisabThreshold;
-            const hZakat = hNisabMet ? hNetWealth * 0.025 : 0;
-
-            // Update UI - Husband
-            document.getElementById('h-net-wealth').textContent = formatCurrency(hNetWealth < 0 ? 0 : hNetWealth);
-            document.getElementById('h-zakat-mal').textContent = formatCurrency(hZakat);
-            
-            const hBadge = document.getElementById('h-nisab-badge');
-            if (hNisabMet) {
-                hBadge.textContent = "Nisab Met";
-                hBadge.className = "nisab-status status-met";
-            } else {
-                hBadge.textContent = "Nisab Not Met";
-                hBadge.className = "nisab-status status-not-met";
-            }
-
-            // 4. Wife Calculation (if active)
-            let wZakat = 0;
-            if (isCoupleMode) {
-                const wGoldGrams = getVal('w-gold');
-                const wGoldValue = wGoldGrams * goldPrice;
-                document.getElementById('w-gold-val').textContent = wGoldValue.toFixed(2);
-
-                const wSilverGrams = getVal('w-silver');
-                const wSilverValue = wSilverGrams * silverPrice;
-                document.getElementById('w-silver-val').textContent = wSilverValue.toFixed(2);
-
-                const wAssets = getVal('w-cash') + wGoldValue + wSilverValue + getVal('w-trade') + getVal('w-invest') + getVal('w-receivables') + getVal('w-mahr');
-                const wDeductions = getVal('w-debts') + getVal('w-credit') + getVal('w-bills') + getVal('w-mortgage');
-                
-                const wNetWealth = wAssets - wDeductions;
-                const wNisabMet = wNetWealth >= nisabThreshold;
-                wZakat = wNisabMet ? wNetWealth * 0.025 : 0;
-
-                // Update UI - Wife
-                document.getElementById('w-net-wealth').textContent = formatCurrency(wNetWealth < 0 ? 0 : wNetWealth);
-                document.getElementById('w-zakat-mal').textContent = formatCurrency(wZakat);
-                
-                const wBadge = document.getElementById('w-nisab-badge');
-                if (wNisabMet) {
-                    wBadge.textContent = "Wife: Nisab Met";
-                    wBadge.className = "nisab-status status-met";
-                } else {
-                    wBadge.textContent = "Wife: Nisab Not Met";
-                    wBadge.className = "nisab-status status-not-met";
-                }
-            }
-
-            // 5. Zakat al-Fitr
             const fitrTotal = getVal('fitr-count') * getVal('fitr-rate');
             document.getElementById('fitr-total').textContent = formatCurrency(fitrTotal);
 
-            // 6. Grand Total
             const grandTotal = hZakat + wZakat + fitrTotal;
             document.getElementById('grand-total').textContent = grandTotal.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return { hZakat, wZakat, fitrTotal, grandTotal, nisabThreshold };
         }
 
         // ----------------- DATA PERSISTENCE -----------------
         function saveRecord() {
-            const hName = document.getElementById('h-name').value.trim();
-            const wName = document.getElementById('w-name').value.trim();
+            const totals = calculateZakat();
             
             const record = {
                 id: Date.now(),
-                hName: hName,
-                wName: isCoupleMode ? wName : '',
+                hName: document.getElementById('h-name').value.trim(),
+                wName: isCoupleMode ? document.getElementById('w-name').value.trim() : '',
                 label: document.getElementById('year-label').value,
                 date: document.getElementById('zakat-date').value,
                 mode: isCoupleMode ? 'Couple' : 'Solo',
-                nisabThreshold: getVal('silver-price') * silverNisabWeight,
-                totalZakatMal: parseFloat(document.getElementById('h-zakat-mal').textContent.replace(/[^0-9.-]+/g,"")) + (isCoupleMode ? parseFloat(document.getElementById('w-zakat-mal').textContent.replace(/[^0-9.-]+/g,"")) : 0),
-                fitrTotal: getVal('fitr-count') * getVal('fitr-rate'),
-                grandTotal: parseFloat(document.getElementById('grand-total').textContent.replace(/[^0-9.-]+/g,"")),
-                breakdowns: JSON.parse(JSON.stringify(breakdownsData)) // Deep copy of breakdowns
+                nisabThreshold: totals.nisabThreshold,
+                totalZakatMal: totals.hZakat + totals.wZakat,
+                fitrTotal: totals.fitrTotal,
+                grandTotal: totals.grandTotal,
+                breakdowns: JSON.parse(JSON.stringify(breakdownsData))
             };
 
-            let records = JSON.parse(localStorage.getItem('zakatRecords')) || [];
-            records.unshift(record); // Add to beginning
-            localStorage.setItem('zakatRecords', JSON.stringify(records));
+            const records = getStoredRecords();
+            records.unshift(record);
+            setStoredRecords(records);
             
             alert('Record saved successfully!');
             renderHistory();
@@ -1211,7 +1140,7 @@
         }
 
         function renderHistory() {
-            const records = JSON.parse(localStorage.getItem('zakatRecords')) || [];
+            const records = getStoredRecords();
             const container = document.getElementById('history-container');
             
             if (records.length === 0) {
@@ -1219,14 +1148,9 @@
                 return;
             }
 
-            let html = '';
-            records.forEach(rec => {
-                let nameDisplay = rec.hName ? rec.hName : 'Unknown';
-                if (rec.mode === 'Couple' && rec.wName) {
-                    nameDisplay += ` & ${rec.wName}`;
-                }
-                
-                html += `
+            container.innerHTML = records.map(rec => {
+                const nameDisplay = rec.mode === 'Couple' && rec.wName ? `${rec.hName || 'Unknown'} & ${rec.wName}` : (rec.hName || 'Unknown');
+                return `
                     <div class="history-card" onclick="openPreviewModal(${rec.id})">
                         <div class="history-year">${rec.label}</div>
                         <div class="history-row"><span>Name(s):</span> <span>${nameDisplay}</span></div>
@@ -1239,66 +1163,62 @@
                         <div style="margin-top:12px; font-size:0.8rem; color:var(--text-muted); text-align:center; font-style:italic;">Click to view full details</div>
                     </div>
                 `;
-            });
-            container.innerHTML = html;
+            }).join('');
         }
 
-        // ----------------- PREVIEW MODAL -----------------
+        // ----------------- MODALS & PRINTING -----------------
+        function generateBreakdownHtml(breakdowns, isPrint = false) {
+            if (!breakdowns || Object.keys(breakdowns).length === 0) return '';
+            
+            let html = isPrint ? '<h2 style="color: #1a6b5e; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Detailed Breakdown</h2>' 
+                               : '<div class="preview-breakdown-section"><h3>📋 Detailed Breakdown</h3>';
+
+            for (const [fieldId, items] of Object.entries(breakdowns)) {
+                if (!items || items.length === 0) continue;
+                
+                const isGrams = fieldId.includes('gold') || fieldId.includes('silver');
+                const fieldLabel = FIELD_LABEL_MAP[fieldId] || fieldId;
+                const total = items.reduce((sum, item) => sum + item.amount, 0);
+                
+                let rows = items.map(item => `
+                    <tr>
+                        <td ${isPrint ? 'style="padding: 4px; border-bottom: 1px dashed #eee;"' : ''}>${item.label || 'Item'}</td>
+                        <td ${isPrint ? 'style="padding: 4px; border-bottom: 1px dashed #eee; text-align: right;"' : ''}>${isGrams ? item.amount + 'g' : formatCurrency(item.amount)}</td>
+                    </tr>
+                `).join('');
+                
+                rows += `
+                    <tr>
+                        <td ${isPrint ? 'style="padding: 4px; font-weight: bold; text-align: right;"' : 'style="text-align:right; color:var(--text-muted);"'}>Total</td>
+                        <td ${isPrint ? 'style="padding: 4px; font-weight: bold; text-align: right;"' : 'style="font-weight:700;"'}>${isGrams ? total + 'g' : formatCurrency(total)}</td>
+                    </tr>
+                `;
+
+                if (isPrint) {
+                    html += `<h3 style="margin-top: 15px; margin-bottom: 5px; font-size: 1em; color: #555;">${fieldLabel}</h3>
+                             <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 0.9em;">${rows}</table>`;
+                } else {
+                    html += `<div class="preview-breakdown-item"><h4>${fieldLabel}</h4><table class="preview-breakdown-table">${rows}</table></div>`;
+                }
+            }
+            return html + (isPrint ? '' : '</div>');
+        }
+
         function openPreviewModal(id) {
-            const records = JSON.parse(localStorage.getItem('zakatRecords')) || [];
-            const rec = records.find(r => r.id === id);
+            const rec = getStoredRecords().find(r => r.id === id);
             if (!rec) return;
 
-            let nameDisplay = rec.hName ? rec.hName : '';
-            if (rec.mode === 'Couple' && rec.wName) nameDisplay += ` & ${rec.wName}`;
-
+            const nameDisplay = rec.mode === 'Couple' && rec.wName ? `${rec.hName || ''} & ${rec.wName}` : (rec.hName || '');
             document.getElementById('preview-title').textContent = rec.label || 'Zakat Record';
 
-            // Build summary rows
-            let summaryRows = '';
-            if (nameDisplay) summaryRows += `<div class="preview-summary-row"><span>${rec.mode === 'Couple' ? 'Name(s)' : 'Name'}</span><span>${nameDisplay}</span></div>`;
-            summaryRows += `<div class="preview-summary-row"><span>Date</span><span>${rec.date}</span></div>`;
-            summaryRows += `<div class="preview-summary-row"><span>Mode</span><span>${rec.mode}</span></div>`;
-            summaryRows += `<div class="preview-summary-row"><span>Nisab (Silver Standard)</span><span>${formatCurrency(rec.nisabThreshold)}</span></div>`;
-            summaryRows += `<div class="preview-summary-row"><span>Zakat al-Mal (2.5%)</span><span>${formatCurrency(rec.totalZakatMal)}</span></div>`;
-            summaryRows += `<div class="preview-summary-row"><span>Zakat al-Fitr</span><span>${formatCurrency(rec.fitrTotal)}</span></div>`;
-
-            // Build breakdowns
-            let breakdownHtml = '';
-            if (rec.breakdowns && Object.keys(rec.breakdowns).length > 0) {
-                const fieldLabelMap = {
-                    'h-cash': 'Cash (Husband)', 'h-gold': 'Gold (Husband)', 'h-silver': 'Silver (Husband)',
-                    'h-trade': 'Business Inventory (Husband)', 'h-invest': 'Investments (Husband)', 'h-receivables': 'Receivables (Husband)',
-                    'w-cash': 'Cash (Wife)', 'w-gold': 'Gold (Wife)', 'w-silver': 'Silver (Wife)',
-                    'w-trade': 'Business Inventory (Wife)', 'w-invest': 'Investments (Wife)', 'w-receivables': 'Receivables (Wife)',
-                    'h-debts': 'Personal Loans (Husband)', 'h-credit': 'Credit Cards (Husband)',
-                    'h-bills': 'Bills (Husband)', 'h-mortgage': 'Mortgage (Husband)',
-                    'w-debts': 'Personal Loans (Wife)', 'w-credit': 'Credit Cards (Wife)',
-                    'w-bills': 'Bills (Wife)', 'w-mortgage': 'Mortgage (Wife)'
-                };
-
-                breakdownHtml = `<div class="preview-breakdown-section"><h3>📋 Detailed Breakdown</h3>`;
-
-                for (const [fieldId, items] of Object.entries(rec.breakdowns)) {
-                    if (!items || items.length === 0) continue;
-                    const isGrams = fieldId.includes('gold') || fieldId.includes('silver');
-                    const fieldLabel = fieldLabelMap[fieldId] || fieldId;
-                    let total = 0;
-                    let rows = '';
-                    items.forEach(item => {
-                        total += item.amount;
-                        rows += `<tr><td>${item.label || 'Item'}</td><td>${isGrams ? item.amount + ' g' : formatCurrency(item.amount)}</td></tr>`;
-                    });
-                    rows += `<tr><td style="text-align:right; color:var(--text-muted);">Total</td><td style="font-weight:700;">${isGrams ? total + ' g' : formatCurrency(total)}</td></tr>`;
-
-                    breakdownHtml += `
-                        <div class="preview-breakdown-item">
-                            <h4>${fieldLabel}</h4>
-                            <table class="preview-breakdown-table">${rows}</table>
-                        </div>`;
-                }
-                breakdownHtml += `</div>`;
-            }
+            const summaryRows = [
+                nameDisplay ? `<div class="preview-summary-row"><span>${rec.mode === 'Couple' ? 'Name(s)' : 'Name'}</span><span>${nameDisplay}</span></div>` : '',
+                `<div class="preview-summary-row"><span>Date</span><span>${rec.date}</span></div>`,
+                `<div class="preview-summary-row"><span>Mode</span><span>${rec.mode}</span></div>`,
+                `<div class="preview-summary-row"><span>Nisab (Silver Standard)</span><span>${formatCurrency(rec.nisabThreshold)}</span></div>`,
+                `<div class="preview-summary-row"><span>Zakat al-Mal (${ZAKAT_RATE * 100}%)</span><span>${formatCurrency(rec.totalZakatMal)}</span></div>`,
+                `<div class="preview-summary-row"><span>Zakat al-Fitr</span><span>${formatCurrency(rec.fitrTotal)}</span></div>`
+            ].join('');
 
             document.getElementById('preview-modal-body').innerHTML = `
                 <div class="preview-summary-grid">${summaryRows}</div>
@@ -1306,16 +1226,14 @@
                     <span class="label">Total Payable</span>
                     <span class="amount">${formatCurrency(rec.grandTotal)}</span>
                 </div>
-                ${breakdownHtml}
+                ${generateBreakdownHtml(rec.breakdowns)}
                 <p style="text-align:center; font-style:italic; color:var(--text-muted); font-size:0.9rem; margin-top:20px;">May Allah accept your Zakat and purify your wealth.</p>
             `;
 
             document.getElementById('preview-print-btn').onclick = () => printRecord(id);
             document.getElementById('preview-delete-btn').onclick = () => {
                 if (confirm('Delete this record?')) {
-                    let records = JSON.parse(localStorage.getItem('zakatRecords')) || [];
-                    records = records.filter(r => r.id !== id);
-                    localStorage.setItem('zakatRecords', JSON.stringify(records));
+                    setStoredRecords(getStoredRecords().filter(r => r.id !== id));
                     closePreviewModal();
                     renderHistory();
                 }
@@ -1329,51 +1247,9 @@
             document.getElementById('preview-modal-overlay').classList.remove('active');
         }
 
-        function deleteRecord(id) {
-            if(confirm('Are you sure you want to delete this record?')) {
-                let records = JSON.parse(localStorage.getItem('zakatRecords')) || [];
-                records = records.filter(r => r.id !== id);
-                localStorage.setItem('zakatRecords', JSON.stringify(records));
-                renderHistory();
-            }
-        }
-
         function printRecord(id) {
-            const records = JSON.parse(localStorage.getItem('zakatRecords')) || [];
-            const rec = records.find(r => r.id === id);
+            const rec = getStoredRecords().find(r => r.id === id);
             if(!rec) return;
-
-            // Generate breakdown HTML
-            let breakdownsHtml = '';
-            if (rec.breakdowns && Object.keys(rec.breakdowns).length > 0) {
-                breakdownsHtml = '<h2 style="color: #1a6b5e; margin-top: 30px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Detailed Breakdown</h2>';
-                for (const [fieldId, items] of Object.entries(rec.breakdowns)) {
-                    if (items && items.length > 0) {
-                        // Extract a nice name from the field ID (e.g. h-cash -> Husband Cash)
-                        let fieldName = fieldId.replace('h-', 'Husband: ').replace('w-', 'Wife: ').replace('-', ' ');
-                        fieldName = fieldName.charAt(0).toUpperCase() + fieldName.slice(1);
-                        
-                        breakdownsHtml += `<h3 style="margin-top: 15px; margin-bottom: 5px; font-size: 1em; color: #555;">${fieldName}</h3>`;
-                        breakdownsHtml += `<table style="width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 0.9em;">`;
-                        
-                        let total = 0;
-                        const isGrams = fieldId.includes('gold') || fieldId.includes('silver');
-                        
-                        items.forEach(item => {
-                            breakdownsHtml += `<tr>
-                                <td style="padding: 4px; border-bottom: 1px dashed #eee;">${item.label || 'Item'}</td>
-                                <td style="padding: 4px; border-bottom: 1px dashed #eee; text-align: right;">${isGrams ? item.amount + 'g' : formatCurrency(item.amount)}</td>
-                            </tr>`;
-                            total += item.amount;
-                        });
-                        
-                        breakdownsHtml += `<tr>
-                            <td style="padding: 4px; font-weight: bold; text-align: right;">Total:</td>
-                            <td style="padding: 4px; font-weight: bold; text-align: right;">${isGrams ? total + 'g' : formatCurrency(total)}</td>
-                        </tr></table>`;
-                    }
-                }
-            }
 
             const printWin = window.open('', '', 'width=600,height=800');
             printWin.document.write(`
@@ -1394,11 +1270,11 @@
                     <div class="row"><span>Date Computed:</span> <span>${rec.date}</span></div>
                     <div class="row"><span>Mode:</span> <span>${rec.mode}</span></div>
                     <div class="row"><span>Nisab Standard (Silver):</span> <span>${formatCurrency(rec.nisabThreshold)}</span></div>
-                    <div class="row"><span>Zakat al-Mal (2.5%):</span> <span>${formatCurrency(rec.totalZakatMal)}</span></div>
+                    <div class="row"><span>Zakat al-Mal (${ZAKAT_RATE * 100}%):</span> <span>${formatCurrency(rec.totalZakatMal)}</span></div>
                     <div class="row"><span>Zakat al-Fitr:</span> <span>${formatCurrency(rec.fitrTotal)}</span></div>
                     <div class="row total"><span>Total Payable:</span> <span>${formatCurrency(rec.grandTotal)}</span></div>
                     
-                    ${breakdownsHtml}
+                    ${generateBreakdownHtml(rec.breakdowns, true)}
 
                     <br><br>
                     <p style="text-align:center; font-style:italic; color:#666; margin-top: 40px;">May Allah accept your Zakat and purify your wealth.</p>
