@@ -279,14 +279,20 @@
                         <label>Silver Price (per gram) <span class="info-icon" onclick="openFiqh('rule1')">i</span></label>
                         <div class="input-wrapper">
                             <span class="currency-symbol">$</span>
-                            <input type="number" id="silver-price" class="has-currency" value="1.05" step="0.01">
+                            <input type="number" id="silver-price" class="has-currency" placeholder="Enter current price" step="0.01" min="0">
+                        </div>
+                        <div style="font-size:0.8rem; color:var(--info); margin-top:3px;">
+                            🔗 <a href="https://www.kitco.com/charts/silver/" target="_blank" style="color:var(--info);">Check live silver price →</a>
                         </div>
                     </div>
                     <div class="form-group">
                         <label>Gold Price (per gram) <span class="info-icon" onclick="openFiqh('rule3')">i</span></label>
                         <div class="input-wrapper">
                             <span class="currency-symbol">$</span>
-                            <input type="number" id="gold-price" class="has-currency" value="95.50" step="0.01">
+                            <input type="number" id="gold-price" class="has-currency" placeholder="Enter current price" step="0.01" min="0">
+                        </div>
+                        <div style="font-size:0.8rem; color:var(--info); margin-top:3px;">
+                            🔗 <a href="https://www.kitco.com/charts/gold/" target="_blank" style="color:var(--info);">Check live gold price →</a>
                         </div>
                     </div>
                     <div class="form-group" style="grid-column: 1 / -1; background: var(--bg-body); padding: 15px; border-radius: var(--radius-sm); border-left: 4px solid var(--info);">
@@ -377,6 +383,11 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Assets Total Footer -->
+                    <div style="margin-top: 15px; padding: 12px 15px; background: var(--bg-body); border-radius: var(--radius-sm); border-top: 2px solid var(--accent); display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 600; color: var(--text-main);">Total Zakatable Assets</span>
+                        <span style="font-size: 1.1rem; font-weight: 700; color: var(--primary);" id="h-total-assets">CA$0.00</span>
+                    </div>
                 </div>
             </div>
 
@@ -427,6 +438,11 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Liabilities Total Footer -->
+                    <div style="margin-top: 15px; padding: 12px 15px; background: var(--bg-body); border-radius: var(--radius-sm); border-top: 2px solid var(--danger); display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: 600; color: var(--text-main);">Total Liabilities</span>
+                        <span style="font-size: 1.1rem; font-weight: 700; color: var(--danger);" id="h-total-liabilities">CA$0.00</span>
+                    </div>
                 </div>
             </div>
 
@@ -435,14 +451,26 @@
                 <h2 class="arabic-font" style="margin-bottom: 20px; font-size: 2rem;">Zakat Summary</h2>
                 
                 <div id="h-results-section">
-                    <div id="h-nisab-badge" class="nisab-status status-not-met">Nisab Not Met</div>
                     <div class="result-row">
-                        <span class="result-label" id="h-wealth-label">Total Zakatable Wealth</span>
-                        <span class="result-value" id="h-net-wealth">$0.00</span>
+                        <span class="result-label">Total Assets</span>
+                        <span class="result-value" id="h-summary-assets">CA$0.00</span>
                     </div>
                     <div class="result-row">
+                        <span class="result-label">Total Liabilities</span>
+                        <span class="result-value" id="h-summary-liabilities">CA$0.00</span>
+                    </div>
+                    <div class="result-row">
+                        <span class="result-label">Nisab Threshold (Silver)</span>
+                        <span class="result-value" id="h-summary-nisab">CA$0.00</span>
+                    </div>
+                    <div class="result-row" style="margin-top: 5px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.2);">
+                        <span class="result-label">Net Zakatable Wealth</span>
+                        <span class="result-value" id="h-net-wealth">CA$0.00</span>
+                    </div>
+                    <div id="h-nisab-badge" class="nisab-status status-not-met" style="margin-top: 10px; margin-bottom: 5px;">Nisab Not Met</div>
+                    <div class="result-row">
                         <span class="result-label" id="h-zakat-label">Zakat al-Mal (2.5%)</span>
-                        <span class="result-value" id="h-zakat-mal">$0.00</span>
+                        <span class="result-value" id="h-zakat-mal">CA$0.00</span>
                     </div>
                 </div>
                 
@@ -907,11 +935,23 @@
             const nisabMet = netWealth >= nisabThreshold;
             const zakat = nisabMet ? netWealth * ZAKAT_RATE : 0;
 
+            // Section totals
+            const totalAssetsEl = document.getElementById(`${prefix}-total-assets`);
+            const totalLiabEl = document.getElementById(`${prefix}-total-liabilities`);
+            if (totalAssetsEl) totalAssetsEl.textContent = formatCurrency(assets);
+            if (totalLiabEl) totalLiabEl.textContent = formatCurrency(deductions);
+
+            // Summary panel
+            const summaryAssetsEl = document.getElementById(`${prefix}-summary-assets`);
+            const summaryLiabEl = document.getElementById(`${prefix}-summary-liabilities`);
+            if (summaryAssetsEl) summaryAssetsEl.textContent = formatCurrency(assets);
+            if (summaryLiabEl) summaryLiabEl.textContent = formatCurrency(deductions);
+
             document.getElementById(`${prefix}-net-wealth`).textContent = formatCurrency(Math.max(0, netWealth));
             document.getElementById(`${prefix}-zakat-mal`).textContent = formatCurrency(zakat);
             updateNisabBadge(prefix, nisabMet);
 
-            return zakat;
+            return { zakat, assets, deductions };
         }
 
         function calculateZakat() {
@@ -920,10 +960,15 @@
             const nisabThreshold = silverPrice * SILVER_NISAB_WEIGHT;
             document.getElementById('nisab-value').textContent = formatCurrency(nisabThreshold);
 
-            const zakatMal = calculatePerson('h', nisabThreshold, silverPrice, goldPrice, getVal('riba-amount'));
+            // Update Nisab in summary panel
+            const summaryNisabEl = document.getElementById('h-summary-nisab');
+            if (summaryNisabEl) summaryNisabEl.textContent = formatCurrency(nisabThreshold);
+
+            const result = calculatePerson('h', nisabThreshold, silverPrice, goldPrice, getVal('riba-amount'));
+            const zakatMal = result.zakat;
 
             document.getElementById('grand-total').textContent = zakatMal.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            return { zakatMal, grandTotal: zakatMal, nisabThreshold };
+            return { zakatMal, grandTotal: zakatMal, nisabThreshold, totalAssets: result.assets, totalDeductions: result.deductions };
         }
 
         // ----------------- TOAST & CUSTOM CONFIRM -----------------
@@ -1003,7 +1048,13 @@
         // ----------------- DATA PERSISTENCE -----------------
         function saveRecord() {
             const totals = calculateZakat();
-            
+
+            // Bug 1: Prevent saving empty records
+            if (totals.totalAssets <= 0) {
+                showToast('⚠️ Please enter at least one asset value before saving.', 'danger', 4000);
+                return;
+            }
+
             const record = {
                 id: Date.now(),
                 hName: document.getElementById('h-name').value.trim(),
