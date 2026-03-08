@@ -16,7 +16,7 @@
 
     <!-- Theme & Description -->
     <meta name="theme-color" content="#1a6b5e">
-    <meta name="description" content="Hanafi Fiqh-compliant Zakat calculator with yearly records, couple mode, and detailed breakdowns.">
+    <meta name="description" content="Hanafi Fiqh-compliant Zakat calculator with yearly records and detailed breakdowns.">
     <meta name="mobile-web-app-capable" content="yes">
 
     <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -106,21 +106,6 @@
         .btn-breakdown:hover { background: var(--primary-light); color: white; border-color: var(--primary-light); }
         .btn-breakdown.active-breakdown { background: var(--primary); color: white; border-color: var(--primary); }
         
-        /* Toggle Switch */
-        .toggle-wrapper { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
-        .switch { position: relative; display: inline-block; width: 50px; height: 26px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--primary); }
-        input:checked + .slider:before { transform: translateX(24px); }
-        
-        /* Couple Mode Columns */
-        .couple-columns { display: none; }
-        body.couple-mode .couple-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; border-top: 1px solid var(--border); margin-top: 15px; padding-top: 15px; }
-        body.couple-mode .solo-column { display: none; }
-        .col-title { font-weight: 600; color: var(--primary); margin-bottom: 15px; text-align: center; padding-bottom: 5px; border-bottom: 2px solid var(--accent); }
-        @media (max-width: 600px) { body.couple-mode .couple-columns { grid-template-columns: 1fr; gap: 30px; } }
         
         /* Info Drawer / Modal */
         .drawer-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999; display: none; opacity: 0; transition: opacity 0.3s; }
@@ -229,6 +214,24 @@
         .preview-breakdown-table tr:last-child td { font-weight: 700; border-bottom: none; background: var(--bg-body); }
         .history-card { cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
         .history-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+
+        /* Toast Notification */
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--primary-dark); color: white; padding: 14px 28px; border-radius: 30px; font-size: 1rem; font-weight: 500; z-index: 9999; transition: transform 0.35s cubic-bezier(0.175,0.885,0.32,1.275), opacity 0.35s; opacity: 0; pointer-events: none; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast.toast-success { background: var(--success); }
+        .toast.toast-danger  { background: var(--danger); }
+
+        /* Custom Confirm Modal */
+        .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 5000; display: none; align-items: center; justify-content: center; }
+        .confirm-overlay.active { display: flex; }
+        .confirm-box { background: var(--bg-card); border-radius: var(--radius-lg); padding: 30px 25px 20px; max-width: 380px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.2); text-align: center; }
+        .confirm-box p { font-size: 1.05rem; margin-bottom: 20px; color: var(--text-main); line-height: 1.5; }
+        .confirm-box .confirm-btns { display: flex; gap: 12px; justify-content: center; }
+        .confirm-box .confirm-btns button { flex: 1; max-width: 140px; padding: 10px 16px; font-size: 0.95rem; font-weight: 600; border-radius: var(--radius-sm); border: none; cursor: pointer; }
+        .confirm-cancel { background: var(--bg-body); border: 1px solid var(--border) !important; color: var(--text-muted); }
+        .confirm-cancel:hover { background: var(--border); }
+        .confirm-ok { background: var(--danger); color: white; }
+        .confirm-ok:hover { opacity: 0.9; }
     </style>
 </head>
 <body>
@@ -246,13 +249,11 @@
 
         <!-- CALCULATOR TAB -->
         <div id="calc-tab" class="tab-content active">
-            <div class="toggle-wrapper">
-                <span class="col-title">Solo Mode</span>
-                <label class="switch">
-                    <input type="checkbox" id="mode-toggle">
-                    <span class="slider"></span>
-                </label>
-                <span class="col-title" style="color:var(--text-muted)">Couple Mode</span>
+
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                <button class="btn btn-outline" onclick="resetForm()" style="font-size: 0.9rem; padding: 8px 18px; border-color: var(--danger); color: var(--danger);">
+                    🔄 Reset All Fields
+                </button>
             </div>
 
             <!-- SECTION 1: BASIC DETAILS & NISAB -->
@@ -263,12 +264,8 @@
                 </div>
                 <div class="section-content grid-2">
                     <div class="form-group">
-                        <label id="h-name-label">Name (Solo / Husband)</label>
+                        <label id="h-name-label">Name</label>
                         <input type="text" id="h-name" placeholder="Enter name">
-                    </div>
-                    <div class="form-group" id="w-name-group" style="display:none;">
-                        <label>Wife's Name</label>
-                        <input type="text" id="w-name" placeholder="Enter wife's name">
                     </div>
                     <div class="form-group">
                         <label>Year Label</label>
@@ -325,10 +322,8 @@
                 </div>
                 <div class="section-content">
                     <div id="assets-container" class="grid-2">
-                        <!-- Left Column (Husband / Solo) -->
+                        <!-- Left Column -->
                         <div class="col-left">
-                            <div class="couple-columns"><div class="col-title">Husband's Assets</div></div>
-                            
                             <div class="form-group">
                                 <label>Cash in Checking, Savings & On Hand</label>
                                 <div class="input-wrapper">
@@ -354,7 +349,9 @@
                                 </div>
                                 <div style="font-size:0.8rem; color:var(--accent); text-align:right; margin-top:2px;">Calculated Value: $<span id="h-silver-val">0.00</span></div>
                             </div>
-                            
+                        </div>
+                        <!-- Right Column -->
+                        <div class="col-right">
                             <div class="form-group">
                                 <label>Business Inventory (Current Market Value) <span class="info-icon" onclick="openFiqh('rule4')">i</span></label>
                                 <div class="input-wrapper">
@@ -379,70 +376,6 @@
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Right Column (Wife) -->
-                        <div class="col-right couple-columns" style="display:none;" id="wife-assets-col">
-                            <div class="col-title">Wife's Assets</div>
-                            
-                            <div class="form-group">
-                                <label>Cash in Checking, Savings & On Hand</label>
-                                <div class="input-wrapper">
-                                    <span class="currency-symbol">$</span>
-                                    <input type="number" id="w-cash" class="has-currency asset-input" value="0" min="0">
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Gold Weight (Jewelry, Coins, Bullion) <span class="info-icon" onclick="openFiqh('rule3')">i</span></label>
-                                <div class="input-wrapper">
-                                    <input type="number" id="w-gold" class="has-unit asset-input gold-input" value="0" min="0">
-                                    <span class="unit-suffix">grams</span>
-                                </div>
-                                <div style="font-size:0.8rem; color:var(--accent); text-align:right; margin-top:2px;">Calculated Value: $<span id="w-gold-val">0.00</span></div>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Silver Weight (Jewelry, Coins, Bullion) <span class="info-icon" onclick="openFiqh('rule3')">i</span></label>
-                                <div class="input-wrapper">
-                                    <input type="number" id="w-silver" class="has-unit asset-input silver-input" value="0" min="0">
-                                    <span class="unit-suffix">grams</span>
-                                </div>
-                                <div style="font-size:0.8rem; color:var(--accent); text-align:right; margin-top:2px;">Calculated Value: $<span id="w-silver-val">0.00</span></div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Business Inventory (Current Market Value)</label>
-                                <div class="input-wrapper">
-                                    <span class="currency-symbol">$</span>
-                                    <input type="number" id="w-trade" class="has-currency asset-input" value="0" min="0">
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Stocks, Crypto & Zakatable Investments</label>
-                                <div class="input-wrapper">
-                                    <span class="currency-symbol">$</span>
-                                    <input type="number" id="w-invest" class="has-currency asset-input" value="0" min="0">
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Personal Loans Owed to You (Expected to be Repaid)</label>
-                                <div class="input-wrapper">
-                                    <span class="currency-symbol">$</span>
-                                    <input type="number" id="w-receivables" class="has-currency asset-input" value="0" min="0">
-                                </div>
-                            </div>
-                            
-                            <div class="form-group" style="background:var(--bg-body); padding:10px; border-radius:4px;">
-                                <label>Unpaid Mahr Owed by Husband <span class="info-icon" onclick="openFiqh('rule9')">i</span></label>
-                                <div class="input-wrapper">
-                                    <span class="currency-symbol">$</span>
-                                    <input type="number" id="w-mahr" class="has-currency asset-input" value="0" min="0" readonly>
-                                </div>
-                                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">*Auto-filled from deductions</div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -457,10 +390,8 @@
                     <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 15px;">Only deduct debts that are currently due, or the principal amount of long-term loans for the next 12 months.</p>
                     
                     <div id="deductions-container" class="grid-2">
-                        <!-- Left Column (Husband / Solo) -->
+                        <!-- Left Column -->
                         <div class="col-left">
-                            <div class="couple-columns"><div class="col-title">Husband's Deductions</div></div>
-                            
                             <div class="form-group">
                                 <label>Personal Loans / Money You Owe to Others <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
                                 <div class="input-wrapper">
@@ -476,7 +407,9 @@
                                     <input type="number" id="h-credit" class="has-currency liability-input" value="0" min="0">
                                 </div>
                             </div>
-
+                        </div>
+                        <!-- Right Column -->
+                        <div class="col-right">
                             <div class="form-group">
                                 <label>Unpaid Rent, Utilities & Immediate Bills <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
                                 <div class="input-wrapper">
@@ -492,72 +425,6 @@
                                     <input type="number" id="h-mortgage" class="has-currency liability-input" value="0" min="0">
                                 </div>
                             </div>
-                            
-                            <div class="form-group couple-columns" style="display:none;" id="h-mahr-group">
-                                <label>Unpaid Mahr Owed to Wife <span class="info-icon" onclick="openFiqh('rule9')">i</span></label>
-                                <div class="input-wrapper">
-                                    <span class="currency-symbol">$</span>
-                                    <input type="number" id="h-mahr-owed" class="has-currency liability-input" value="0" min="0">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Right Column (Wife) -->
-                        <div class="col-right couple-columns" style="display:none;" id="wife-deductions-col">
-                            <div class="col-title">Wife's Deductions</div>
-                            
-                            <div class="form-group">
-                                <label>Personal Loans / Money You Owe to Others <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
-                                <div class="input-wrapper">
-                                    <span class="currency-symbol">$</span>
-                                    <input type="number" id="w-debts" class="has-currency liability-input" value="0" min="0">
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Outstanding Credit Card Balances & LOC <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
-                                <div class="input-wrapper">
-                                    <span class="currency-symbol">$</span>
-                                    <input type="number" id="w-credit" class="has-currency liability-input" value="0" min="0">
-                                </div>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Unpaid Rent, Utilities & Immediate Bills <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
-                                <div class="input-wrapper">
-                                    <span class="currency-symbol">$</span>
-                                    <input type="number" id="w-bills" class="has-currency liability-input" value="0" min="0">
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Mortgages & Auto Loans (Next 12 Months Principal Only) <span class="info-icon" onclick="openFiqh('rule8')">i</span></label>
-                                <div class="input-wrapper">
-                                    <span class="currency-symbol">$</span>
-                                    <input type="number" id="w-mortgage" class="has-currency liability-input" value="0" min="0">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECTION 5: ZAKAT AL-FITR -->
-            <div class="section" id="sec-fitr">
-                <div class="section-header" onclick="toggleSection('sec-fitr')">
-                    <h2>5. Zakat al-Fitr</h2>
-                    <span class="toggle-icon">▼</span>
-                </div>
-                <div class="section-content grid-2">
-                    <div class="form-group">
-                        <label>Number of Dependent Family Members <span class="info-icon" onclick="openFiqh('rule12')">i</span></label>
-                        <input type="number" id="fitr-count" value="1" min="1">
-                    </div>
-                    <div class="form-group">
-                        <label>Rate per Person (Determined by Local Mosque)</label>
-                        <div class="input-wrapper">
-                            <span class="currency-symbol">$</span>
-                            <input type="number" id="fitr-rate" class="has-currency" value="15.00" step="1">
                         </div>
                     </div>
                 </div>
@@ -578,27 +445,10 @@
                         <span class="result-value" id="h-zakat-mal">$0.00</span>
                     </div>
                 </div>
-
-                <div id="w-results-section" style="display:none; margin-top:20px; border-top:1px solid rgba(255,255,255,0.2); padding-top:20px;">
-                    <div id="w-nisab-badge" class="nisab-status status-not-met">Wife: Nisab Not Met</div>
-                    <div class="result-row">
-                        <span class="result-label">Wife's Zakatable Wealth</span>
-                        <span class="result-value" id="w-net-wealth">$0.00</span>
-                    </div>
-                    <div class="result-row">
-                        <span class="result-label">Wife's Zakat al-Mal (2.5%)</span>
-                        <span class="result-value" id="w-zakat-mal">$0.00</span>
-                    </div>
-                </div>
-
-                <div class="result-row" style="margin-top:15px; color:var(--text-muted);">
-                    <span class="result-label">Zakat al-Fitr Total</span>
-                    <span class="result-value" id="fitr-total">$15.00</span>
-                </div>
                 
                 <div class="grand-total">
                     <span style="font-size: 1.2rem; display: block; opacity: 0.9;">Total Payable</span>
-                    $<span id="grand-total">15.00</span>
+                    $<span id="grand-total">0.00</span>
                 </div>
 
                 <button class="btn btn-primary btn-block" onclick="saveRecord()" style="margin-top: 30px; font-size: 1.2rem;">
@@ -665,6 +515,20 @@
         </div>
     </div>
 
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast" id="app-toast"></div>
+
+    <!-- CUSTOM CONFIRM MODAL -->
+    <div class="confirm-overlay" id="confirm-overlay">
+        <div class="confirm-box">
+            <p id="confirm-message">Are you sure?</p>
+            <div class="confirm-btns">
+                <button class="confirm-cancel" id="confirm-cancel-btn" onclick="resolveConfirm(false)">Cancel</button>
+                <button class="confirm-ok" id="confirm-ok-btn" onclick="resolveConfirm(true)">Confirm</button>
+            </div>
+        </div>
+    </div>
+
     <!-- DRAWER -->
     <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
     <div class="drawer" id="fiqh-drawer">
@@ -689,29 +553,17 @@
 
         const BREAKDOWN_FIELDS = [
             'h-cash', 'h-gold', 'h-silver', 'h-trade', 'h-invest', 'h-receivables',
-            'w-cash', 'w-gold', 'w-silver', 'w-trade', 'w-invest', 'w-receivables',
-            'h-debts', 'h-credit', 'h-bills', 'h-mortgage',
-            'w-debts', 'w-credit', 'w-bills', 'w-mortgage'
+            'h-debts', 'h-credit', 'h-bills', 'h-mortgage'
         ];
 
         const FIELD_LABEL_MAP = {
-            'h-cash': 'Cash (Husband)', 'h-gold': 'Gold (Husband)', 'h-silver': 'Silver (Husband)',
-            'h-trade': 'Business Inventory (Husband)', 'h-invest': 'Investments (Husband)', 'h-receivables': 'Receivables (Husband)',
-            'w-cash': 'Cash (Wife)', 'w-gold': 'Gold (Wife)', 'w-silver': 'Silver (Wife)',
-            'w-trade': 'Business Inventory (Wife)', 'w-invest': 'Investments (Wife)', 'w-receivables': 'Receivables (Wife)',
-            'h-debts': 'Personal Loans (Husband)', 'h-credit': 'Credit Cards (Husband)',
-            'h-bills': 'Bills (Husband)', 'h-mortgage': 'Mortgage (Husband)',
-            'w-debts': 'Personal Loans (Wife)', 'w-credit': 'Credit Cards (Wife)',
-            'w-bills': 'Bills (Wife)', 'w-mortgage': 'Mortgage (Wife)'
+            'h-cash': 'Cash', 'h-gold': 'Gold', 'h-silver': 'Silver',
+            'h-trade': 'Business Inventory', 'h-invest': 'Investments', 'h-receivables': 'Receivables',
+            'h-debts': 'Personal Loans', 'h-credit': 'Credit Cards',
+            'h-bills': 'Bills', 'h-mortgage': 'Mortgage'
         };
 
-        const COUPLE_MODE_ELEMENTS = [
-            'w-name-group', 'wife-assets-col', 'wife-deductions-col', 
-            'w-results-section', 'h-mahr-group'
-        ];
-
         // ----------------- STATE & DATA -----------------
-        let isCoupleMode = false;
         let breakdownsData = {}; 
         let currentBreakdownId = null;
         
@@ -795,21 +647,6 @@
                     <p><em>A Clerical Warning:</em> Scholars caution that if you have high liquidity (e.g., $50,000 in savings) and comfortably pay your monthly bills from your salary, you should not use the 12-month long-term debt deduction to artificially lower or wipe out your Zakat. Zakat is the right of the poor; we must be careful not to use modern debt structures as loopholes to avoid paying it.</p>
                 `
             },
-            rule9: {
-                title: "9. The Husband and Wife: Who Pays Zakat on What?",
-                badge: { text: "Individual Obligation", class: "badge-conditional" },
-                content: `
-                    <p><strong>The Rule:</strong> Zakat is a personal obligation (<em>fard 'ayn</em>) — it falls on the <strong>owner</strong> of the wealth, not their spouse. In the Hanafi school, a husband is <strong>not</strong> obligated to pay Zakat on his wife's possessions. The wife owns her jewelry, cash, gold, and receivables independently (<em>milk al-taam</em>), even within the marriage.</p>
-                    <ul>
-                        <li><strong>Jewelry (gold/silver):</strong> The <strong>wife</strong> herself, since she is the owner</li>
-                        <li><strong>Her cash/savings:</strong> The <strong>wife</strong></li>
-                        <li><strong>Loans she gave to others:</strong> The <strong>wife</strong> (if it is a strong debt, <em>Dayn Qawi</em>)</li>
-                        <li><strong>Mahr (dowry) owed by husband:</strong> The <strong>wife</strong> includes it as her asset; the husband may deduct it as a liability</li>
-                    </ul>
-                    <p><strong>Practical Note:</strong> A husband may <em>choose</em> to pay on his wife's behalf as an act of generosity — this is perfectly valid and praiseworthy — but it is <strong>her</strong> obligation being fulfilled, not his. She should ideally be aware of it and give her consent.</p>
-                    <p><strong>The Mahr Link:</strong> If the husband still owes the wife her unpaid Mahr (dowry), that debt is a <strong>liability for the husband</strong> (he can deduct it from his Zakatable wealth) and simultaneously an <strong>asset for the wife</strong> (she must include it in her own Zakat calculation, as it is a strong debt owed to her).</p>
-                `
-            },
             rule10: {
                 title: "10. Paying in Advance (Ta'jeel al-Zakat)",
                 badge: { text: "Permissible", class: "badge-zakatable" },
@@ -835,14 +672,6 @@
                     <p><strong>Note:</strong> You <em>can</em> (and are encouraged to) give Zakat to your siblings, aunts, uncles, or cousins, provided they meet the criteria of being poor (their net wealth is below the Nisab).</p>
                 `
             },
-            rule12: {
-                title: "12. Zakat al-Fitr vs. Zakat al-Mal",
-                badge: { text: "Obligation", class: "badge-zakatable" },
-                content: `
-                    <p><em>Since your spreadsheet is dated "Ramadan 15," it is crucial to remember that the 2.5% we are calculating is Zakat al-Mal (the Zakat on wealth).</em></p>
-                    <p><strong>The Rule:</strong> Because we are in Ramadan, you are additionally obligated to pay <em>Zakat al-Fitr</em> (or <em>Sadaqat al-Fitr</em>) before the Eid al-Fitr prayer. This is a flat, per-person rate (usually equivalent to the cost of a few meals, determined by your local Canadian mosque, often around $10–$15 CAD) required for yourself, your spouse, and your dependent children.</p>
-                `
-            },
             rule13: {
                 title: "13. Agricultural Produce (Ushr) and Livestock",
                 badge: { text: "Different Rate", class: "badge-conditional" },
@@ -866,15 +695,25 @@
         const getVal = id => parseFloat(document.getElementById(id).value) || 0;
         const formatCurrency = num => num.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' });
         const getStoredRecords = () => JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-        const setStoredRecords = records => localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+        function setStoredRecords(records) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+            } catch (e) {
+                if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                    showToast('⚠️ Storage full — record could not be saved. Please delete old records.', 'danger', 5000);
+                } else {
+                    showToast('⚠️ Failed to save record: ' + e.message, 'danger', 5000);
+                }
+            }
+        }
 
         function updateNisabBadge(prefix, isMet) {
             const badge = document.getElementById(`${prefix}-nisab-badge`);
             if (isMet) {
-                badge.textContent = prefix === 'w' ? "Wife: Nisab Met" : "Nisab Met";
+                badge.textContent = "Nisab Met";
                 badge.className = "nisab-status status-met";
             } else {
-                badge.textContent = prefix === 'w' ? "Wife: Nisab Not Met" : "Nisab Not Met";
+                badge.textContent = "Nisab Not Met";
                 badge.className = "nisab-status status-not-met";
             }
         }
@@ -1031,30 +870,8 @@
                 btn.addEventListener('click', e => switchTab(e.target.dataset.tab));
             });
 
-            document.getElementById('mode-toggle').addEventListener('change', e => {
-                isCoupleMode = e.target.checked;
-                document.body.classList.toggle('couple-mode', isCoupleMode);
-                
-                const displayStyle = isCoupleMode ? 'block' : 'none';
-                COUPLE_MODE_ELEMENTS.forEach(id => {
-                    document.getElementById(id).style.display = displayStyle;
-                });
-                
-                document.getElementById('h-name-label').textContent = isCoupleMode ? "Husband's Name" : "Name (Solo)";
-                document.getElementById('h-wealth-label').textContent = isCoupleMode ? "Husband's Zakatable Wealth" : "Total Zakatable Wealth";
-                document.getElementById('h-zakat-label').textContent = isCoupleMode ? `Husband's Zakat al-Mal (${ZAKAT_RATE * 100}%)` : `Zakat al-Mal (${ZAKAT_RATE * 100}%)`;
-                
-                calculateZakat();
-            });
-
             document.querySelectorAll('input[type="number"]').forEach(input => {
                 input.addEventListener('input', calculateZakat);
-            });
-
-            // Mahr Sync: Only updates when husband's Mahr liability changes
-            document.getElementById('h-mahr-owed').addEventListener('input', e => {
-                document.getElementById('w-mahr').value = e.target.value;
-                calculateZakat();
             });
 
             document.getElementById('fiqh-search').addEventListener('input', e => {
@@ -1062,6 +879,11 @@
                 document.querySelectorAll('.rule-card').forEach(card => {
                     card.style.display = card.textContent.toLowerCase().includes(term) ? 'block' : 'none';
                 });
+            });
+
+            // REG-001: Auto-select number input content on focus to prevent leading-zero issues
+            document.querySelectorAll('input[type="number"]').forEach(input => {
+                input.addEventListener('focus', function() { this.select(); });
             });
         }
 
@@ -1077,12 +899,9 @@
 
             // Riba cleansing (floor cash at zero)
             const cash = Math.max(0, getVal(`${prefix}-cash`) - riba);
-            
-            const extraAssets = prefix === 'h' ? 0 : getVal('w-mahr');
-            const extraDeductions = prefix === 'h' && isCoupleMode ? getVal('h-mahr-owed') : 0;
 
-            const assets = cash + goldValue + silverValue + getVal(`${prefix}-trade`) + getVal(`${prefix}-invest`) + getVal(`${prefix}-receivables`) + extraAssets;
-            const deductions = getVal(`${prefix}-debts`) + getVal(`${prefix}-credit`) + getVal(`${prefix}-bills`) + getVal(`${prefix}-mortgage`) + extraDeductions;
+            const assets = cash + goldValue + silverValue + getVal(`${prefix}-trade`) + getVal(`${prefix}-invest`) + getVal(`${prefix}-receivables`);
+            const deductions = getVal(`${prefix}-debts`) + getVal(`${prefix}-credit`) + getVal(`${prefix}-bills`) + getVal(`${prefix}-mortgage`);
             
             const netWealth = assets - deductions;
             const nisabMet = netWealth >= nisabThreshold;
@@ -1101,15 +920,84 @@
             const nisabThreshold = silverPrice * SILVER_NISAB_WEIGHT;
             document.getElementById('nisab-value').textContent = formatCurrency(nisabThreshold);
 
-            const hZakat = calculatePerson('h', nisabThreshold, silverPrice, goldPrice, getVal('riba-amount'));
-            const wZakat = isCoupleMode ? calculatePerson('w', nisabThreshold, silverPrice, goldPrice) : 0;
+            const zakatMal = calculatePerson('h', nisabThreshold, silverPrice, goldPrice, getVal('riba-amount'));
 
-            const fitrTotal = getVal('fitr-count') * getVal('fitr-rate');
-            document.getElementById('fitr-total').textContent = formatCurrency(fitrTotal);
+            document.getElementById('grand-total').textContent = zakatMal.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return { zakatMal, grandTotal: zakatMal, nisabThreshold };
+        }
 
-            const grandTotal = hZakat + wZakat + fitrTotal;
-            document.getElementById('grand-total').textContent = grandTotal.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            return { hZakat, wZakat, fitrTotal, grandTotal, nisabThreshold };
+        // ----------------- TOAST & CUSTOM CONFIRM -----------------
+        let _confirmResolve = null;
+
+        function showToast(message, type = 'success', duration = 3000) {
+            const toast = document.getElementById('app-toast');
+            toast.textContent = message;
+            toast.className = 'toast toast-' + type;
+            // Force reflow so transition fires
+            void toast.offsetWidth;
+            toast.classList.add('show');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => toast.classList.remove('show'), duration);
+        }
+
+        function showConfirm(message, okLabel = 'Confirm', okClass = 'confirm-ok') {
+            document.getElementById('confirm-message').textContent = message;
+            document.getElementById('confirm-ok-btn').textContent = okLabel;
+            document.getElementById('confirm-ok-btn').className = okClass;
+            document.getElementById('confirm-overlay').classList.add('active');
+            return new Promise(resolve => { _confirmResolve = resolve; });
+        }
+
+        function resolveConfirm(result) {
+            document.getElementById('confirm-overlay').classList.remove('active');
+            if (_confirmResolve) { _confirmResolve(result); _confirmResolve = null; }
+        }
+
+        // ----------------- RESET -----------------
+        async function resetForm() {
+            const ok = await showConfirm('Reset all fields? This will clear all your entered values.', 'Reset', 'confirm-ok');
+            if (!ok) return;
+            doReset();
+            showToast('✅ All fields reset', 'success');
+        }
+
+        function doReset() {
+            // Clear text / date fields
+            document.getElementById('h-name').value = '';
+            document.getElementById('year-label').value = 'Ramadan 1445';
+            document.getElementById('zakat-date').valueAsDate = new Date();
+
+            // Clear all numeric fields to 0
+            const numericIds = [
+                'riba-amount',
+                'h-cash', 'h-gold', 'h-silver', 'h-trade', 'h-invest', 'h-receivables',
+                'h-debts', 'h-credit', 'h-bills', 'h-mortgage'
+            ];
+            numericIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.value = 0;
+                el.readOnly = false;
+                el.style.backgroundColor = '';
+                el.title = '';
+            });
+
+            // Reset all breakdown Split buttons back to default state
+            BREAKDOWN_FIELDS.forEach(id => {
+                const input = document.getElementById(id);
+                if (!input) return;
+                const btn = input.closest('.input-wrapper')?.querySelector('.btn-breakdown');
+                if (btn) {
+                    btn.classList.remove('active-breakdown');
+                    btn.innerHTML = '☰ Split';
+                }
+            });
+
+            // Clear breakdown state
+            breakdownsData = {};
+
+            // Recalculate so summary panel resets to $0
+            calculateZakat();
         }
 
         // ----------------- DATA PERSISTENCE -----------------
@@ -1119,13 +1007,10 @@
             const record = {
                 id: Date.now(),
                 hName: document.getElementById('h-name').value.trim(),
-                wName: isCoupleMode ? document.getElementById('w-name').value.trim() : '',
                 label: document.getElementById('year-label').value,
                 date: document.getElementById('zakat-date').value,
-                mode: isCoupleMode ? 'Couple' : 'Solo',
                 nisabThreshold: totals.nisabThreshold,
-                totalZakatMal: totals.hZakat + totals.wZakat,
-                fitrTotal: totals.fitrTotal,
+                totalZakatMal: totals.zakatMal,
                 grandTotal: totals.grandTotal,
                 breakdowns: JSON.parse(JSON.stringify(breakdownsData))
             };
@@ -1134,8 +1019,9 @@
             records.unshift(record);
             setStoredRecords(records);
             
-            alert('Record saved successfully!');
+            showToast('✅ Record saved successfully!', 'success');
             renderHistory();
+            doReset();
             switchTab('history');
         }
 
@@ -1149,16 +1035,13 @@
             }
 
             container.innerHTML = records.map(rec => {
-                const nameDisplay = rec.mode === 'Couple' && rec.wName ? `${rec.hName || 'Unknown'} & ${rec.wName}` : (rec.hName || 'Unknown');
                 return `
                     <div class="history-card" onclick="openPreviewModal(${rec.id})">
-                        <div class="history-year">${rec.label}</div>
-                        <div class="history-row"><span>Name(s):</span> <span>${nameDisplay}</span></div>
+                        <div class="history-year">${rec.label || 'Untitled Record'}</div>
+                        ${rec.hName ? `<div class="history-row"><span>Name:</span> <span>${rec.hName}</span></div>` : ''}
                         <div class="history-row"><span>Date:</span> <span>${rec.date}</span></div>
-                        <div class="history-row"><span>Mode:</span> <span>${rec.mode}</span></div>
                         <div class="history-row"><span>Nisab Used:</span> <span>${formatCurrency(rec.nisabThreshold)}</span></div>
                         <div class="history-row"><span>Zakat al-Mal:</span> <span>${formatCurrency(rec.totalZakatMal)}</span></div>
-                        <div class="history-row"><span>Zakat al-Fitr:</span> <span>${formatCurrency(rec.fitrTotal)}</span></div>
                         <div class="history-total">Total Paid: ${formatCurrency(rec.grandTotal)}</div>
                         <div style="margin-top:12px; font-size:0.8rem; color:var(--text-muted); text-align:center; font-style:italic;">Click to view full details</div>
                     </div>
@@ -1208,16 +1091,14 @@
             const rec = getStoredRecords().find(r => r.id === id);
             if (!rec) return;
 
-            const nameDisplay = rec.mode === 'Couple' && rec.wName ? `${rec.hName || ''} & ${rec.wName}` : (rec.hName || '');
+            const nameDisplay = rec.hName || '';
             document.getElementById('preview-title').textContent = rec.label || 'Zakat Record';
 
             const summaryRows = [
-                nameDisplay ? `<div class="preview-summary-row"><span>${rec.mode === 'Couple' ? 'Name(s)' : 'Name'}</span><span>${nameDisplay}</span></div>` : '',
+                nameDisplay ? `<div class="preview-summary-row"><span>Name</span><span>${nameDisplay}</span></div>` : '',
                 `<div class="preview-summary-row"><span>Date</span><span>${rec.date}</span></div>`,
-                `<div class="preview-summary-row"><span>Mode</span><span>${rec.mode}</span></div>`,
                 `<div class="preview-summary-row"><span>Nisab (Silver Standard)</span><span>${formatCurrency(rec.nisabThreshold)}</span></div>`,
-                `<div class="preview-summary-row"><span>Zakat al-Mal (${ZAKAT_RATE * 100}%)</span><span>${formatCurrency(rec.totalZakatMal)}</span></div>`,
-                `<div class="preview-summary-row"><span>Zakat al-Fitr</span><span>${formatCurrency(rec.fitrTotal)}</span></div>`
+                `<div class="preview-summary-row"><span>Zakat al-Mal (${ZAKAT_RATE * 100}%)</span><span>${formatCurrency(rec.totalZakatMal)}</span></div>`
             ].join('');
 
             document.getElementById('preview-modal-body').innerHTML = `
@@ -1231,12 +1112,13 @@
             `;
 
             document.getElementById('preview-print-btn').onclick = () => printRecord(id);
-            document.getElementById('preview-delete-btn').onclick = () => {
-                if (confirm('Delete this record?')) {
-                    setStoredRecords(getStoredRecords().filter(r => r.id !== id));
-                    closePreviewModal();
-                    renderHistory();
-                }
+            document.getElementById('preview-delete-btn').onclick = async () => {
+                const ok = await showConfirm('Delete this record? This cannot be undone.', 'Delete', 'confirm-ok');
+                if (!ok) return;
+                setStoredRecords(getStoredRecords().filter(r => r.id !== id));
+                closePreviewModal();
+                renderHistory();
+                showToast('🗑️ Record deleted', 'danger');
             };
 
             document.getElementById('preview-modal-overlay').classList.add('active');
@@ -1264,14 +1146,11 @@
                     </style>
                 </head>
                 <body>
-                    <h1>Zakat Receipt: ${rec.label}</h1>
-                    ${rec.hName ? `<div class="row"><span>${rec.mode === 'Couple' ? "Husband's Name" : "Name"}:</span> <span>${rec.hName}</span></div>` : ''}
-                    ${rec.mode === 'Couple' && rec.wName ? `<div class="row"><span>Wife's Name:</span> <span>${rec.wName}</span></div>` : ''}
+                    <h1>Zakat Receipt${rec.label ? ': ' + rec.label : ''}</h1>
+                    ${rec.hName ? `<div class="row"><span>Name:</span> <span>${rec.hName}</span></div>` : ''}
                     <div class="row"><span>Date Computed:</span> <span>${rec.date}</span></div>
-                    <div class="row"><span>Mode:</span> <span>${rec.mode}</span></div>
                     <div class="row"><span>Nisab Standard (Silver):</span> <span>${formatCurrency(rec.nisabThreshold)}</span></div>
                     <div class="row"><span>Zakat al-Mal (${ZAKAT_RATE * 100}%):</span> <span>${formatCurrency(rec.totalZakatMal)}</span></div>
-                    <div class="row"><span>Zakat al-Fitr:</span> <span>${formatCurrency(rec.fitrTotal)}</span></div>
                     <div class="row total"><span>Total Payable:</span> <span>${formatCurrency(rec.grandTotal)}</span></div>
                     
                     ${generateBreakdownHtml(rec.breakdowns, true)}
